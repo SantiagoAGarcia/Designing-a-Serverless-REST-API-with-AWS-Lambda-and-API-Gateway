@@ -1,12 +1,5 @@
 # Designing a Serverless REST API with AWS Lambda and Amazon API Gateway
 
-[![Java 17](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.org/projects/jdk/17/)
-[![Maven](https://img.shields.io/badge/Maven-3.9.6-blue.svg)](https://maven.apache.org/)
-[![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-ff9900.svg)](https://aws.amazon.com/lambda/)
-[![Amazon API Gateway](https://img.shields.io/badge/Amazon-API%20Gateway-red.svg)](https://aws.amazon.com/api-gateway/)
-[![JUnit 5](https://img.shields.io/badge/JUnit-5.10-green.svg)](https://junit.org/junit5/)
-[![Build & Tests](https://img.shields.io/badge/Tests-19%20Passed-brightgreen.svg)]()
-
 This repository contains the complete implementation, architectural analysis, and engineering evaluation for the **Order Management Serverless REST API** built with Java 17, AWS Lambda, Amazon API Gateway, and Maven.
 
 ---
@@ -35,8 +28,11 @@ This repository contains the complete implementation, architectural analysis, an
    - [HTTP Semantics & Status Codes](#http-semantics--status-codes)
 8. [Comprehensive Architecture Comparison (A vs B)](#8-comprehensive-architecture-comparison-a-vs-b)
 9. [Criticize Your AI Assistant (3 Critical Decisions)](#9-criticize-your-ai-assistant-3-critical-decisions)
-10. [Project Structure](#10-project-structure)
-11. [Step-by-Step Build, Test, and Demonstration Guide](#11-step-by-step-build-test-and-demonstration-guide)
+10. [Final Challenge — DELETE /orders/{id}](#10-final-challenge--delete-ordersid)
+    - [Pre-Implementation Prediction](#pre-implementation-prediction)
+    - [Evaluation & Comparison](#evaluation--comparison)
+11. [Project Structure](#11-project-structure)
+12. [Step-by-Step Build, Test, and Demonstration Guide](#12-step-by-step-build-test-and-demonstration-guide)
 
 ---
 
@@ -47,7 +43,7 @@ The primary goal of this project is to explore how architectural responsibilitie
 ### Core Competencies Demonstrated
 * **Decoupled Java Core**: Writing business logic that has zero compile-time dependencies on AWS, HTTP, or web containers.
 * **Dual Integration Patterns**: Implementing and contrasting **Non-Proxy Integration (Architecture A)** with **Lambda Proxy Integration (Architecture B)**.
-* **Strict HTTP Semantics**: Implementing proper RESTful status codes (`200 OK`, `201 Created` with `Location` header, `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`).
+* **Strict HTTP Semantics**: Implementing proper RESTful status codes (`200 OK`, `201 Created` with `Location` header, `204 No Content`, `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`).
 * **Engineering Evaluation**: Critically analyzing AI architectural suggestions instead of passively accepting defaults.
 
 ---
@@ -99,6 +95,7 @@ A predictable and machine-readable error payload must include:
 | **Create Order** | `POST` | `/orders` | None | None | `{"customerId":"CUST-42", "product":"MacBook Air", "quantity":1}` | `201 Created` | `Order` JSON<br>Header: `Location: /orders/{id}` | `400 Bad Request`<br>`500 Internal Error` |
 | **Retrieve Order** | `GET` | `/orders/{id}` | `id` (e.g. `ORD-001`) | None | None | `200 OK` | `Order` JSON | `400 Bad Request`<br>`404 Not Found` |
 | **Find Orders by Customer** | `GET` | `/orders` | None | `customerId` (e.g. `CUST-42`) | None | `200 OK` | Array of `Order` JSON `[...]` | `400 Bad Request`<br>`500 Internal Error` |
+| **Delete Order** | `DELETE` | `/orders/{id}` | `id` (e.g. `ORD-001`) | None | None | `204 No Content` | *Empty Body* | `400 Bad Request`<br>`404 Not Found` |
 
 ### Standard Error Format
 ```json
@@ -132,9 +129,9 @@ flowchart TD
             subgraph AdapterLayer["HTTP Adapter Layer (AWS & HTTP Aware)"]
                 ProxyHandler["OrdersProxyHandler
                 - Parses APIGatewayProxyRequestEvent
-                - Maps Routes (GET, POST)
+                - Maps Routes (GET, POST, DELETE)
                 - Jackson JSON (De)serialization
-                - Generates HTTP Status & Headers (200, 201, 400, 404)"]
+                - Generates HTTP Status & Headers (201, 204, 404)"]
             end
             
             subgraph CoreDomain["Pure Java Application Core (POJO / Plain Java)"]
@@ -156,7 +153,7 @@ flowchart TD
         end
     end
 
-    Client -->|"HTTP Request (POST, GET)"| APIGW
+    Client -->|"HTTP Request (POST, GET, DELETE)"| APIGW
     APIGW -->|"JSON Proxy Event"| LambdaRuntime
     LambdaRuntime -->|"APIGatewayProxyRequestEvent"| ProxyHandler
     ProxyHandler -->|"Plain DTOs (CreateOrderRequest, IDs)"| Service
@@ -165,7 +162,7 @@ flowchart TD
     Service -->|"Domain Entity / Throws Domain Exception"| ProxyHandler
     ProxyHandler -->|"APIGatewayProxyResponseEvent (Status, Body, Headers)"| LambdaRuntime
     LambdaRuntime -->|"Serialized JSON Response"| APIGW
-    APIGW -->|"HTTP Response (200, 201, 400, 404)"| Client
+    APIGW -->|"HTTP Response (200, 201, 204, 400, 404)"| Client
 
     classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E;
     classDef adapter fill:#3F83F8,stroke:#1C3D5A,stroke-width:2px,color:#ffffff;
@@ -201,7 +198,7 @@ flowchart TD
 The core business layer is implemented in standard Java 17:
 * **Validation**: Performed entirely inside `OrderService.java` (e.g. verifying non-null strings, non-blank customer IDs, quantity $> 0$).
 * **Storage**: Encapsulated behind `OrderRepository.java` using a `ConcurrentHashMap` inside `InMemoryOrderRepository.java`.
-* **Testing**: 6 JUnit 5 tests verify every business rule without starting any network port, server, or cloud emulator.
+* **Testing**: 8 JUnit 5 tests verify every business rule without starting any network port, server, or cloud emulator.
 
 ### Checkpoint 1: Local Testing Without AWS
 
@@ -381,14 +378,14 @@ An example proxy event received by the Lambda handler:
 ### HTTP Adapter Implementation
 The class [`OrdersProxyHandler.java`](orders-api/src/main/java/com/serverless/workshop/lambda/proxy/OrdersProxyHandler.java) acts as the **HTTP Adapter / Front Controller**:
 1. Inspects `getHttpMethod()` and `getPath()`.
-2. Dispatches calls to `orderService.createOrder()`, `getOrder()`, or `getOrdersByCustomer()`.
+2. Dispatches calls to `orderService.createOrder()`, `getOrder()`, `getOrdersByCustomer()`, or `deleteOrder()`.
 3. Catches domain exceptions (`OrderNotFoundException`, `InvalidOrderException`) and maps them to HTTP responses.
 4. Serializes outgoing responses into `APIGatewayProxyResponseEvent`.
 
 ### HTTP Semantics & Status Codes
 * **200 OK**: Returned for successful retrieval (`GET /orders/{id}`) and customer search (`GET /orders?customerId=...`).
 * **201 Created**: Returned for successful creation (`POST /orders`). Includes the `Location: /orders/{id}` header and newly created `Order` body.
-* **204 No Content**: Returned for CORS preflight (`OPTIONS`), with empty body.
+* **204 No Content**: Returned for successful deletion (`DELETE /orders/{id}`) and CORS preflight (`OPTIONS`), with empty body.
 * **400 Bad Request**: Returned for validation errors (missing customer ID, negative quantity) or malformed JSON syntax.
 * **404 Not Found**: Returned when an order ID does not exist (`ORDER_NOT_FOUND`) or an unmatched route is requested.
 * **500 Internal Server Error**: Returned for unexpected server-side failures, preventing internal stack trace leakage.
@@ -415,14 +412,14 @@ The class [`OrdersProxyHandler.java`](orders-api/src/main/java/com/serverless/wo
 During development, the AI coding assistant proposed several architectural decisions. Below is a critical engineering evaluation of three non-trivial decisions:
 
 ### Decision 1: Single Routing Lambda Handler vs. One Lambda Per Operation
-* **What the Agent Proposed**: A single Lambda function (`OrdersProxyHandler`) acting as a Front Controller / Router handling all HTTP methods (`POST`, `GET`) for orders.
+* **What the Agent Proposed**: A single Lambda function (`OrdersProxyHandler`) acting as a Front Controller / Router handling all HTTP methods (`POST`, `GET`, `DELETE`) for orders.
 * **Why the Agent Proposed This**:
   1. Reduces cold starts by sharing an active Lambda execution container across different order operations.
   2. Simplifies deployment configuration (one Lambda resource in CloudFormation/SAM).
   3. Avoids duplicating boilerplate code for serialization and CORS headers across multiple classes.
 * **Do We Agree?**: **Partially, with nuances.**
   - *Agreement*: For a cohesive microservice domain like Order Management, a single Lambda handler provides better memory container reuse and simplifies local JUnit testing.
-  - *Alternative*: One Lambda per operation (`CreateOrderFunction`, `GetOrderFunction`).
+  - *Alternative*: One Lambda per operation (`CreateOrderFunction`, `GetOrderFunction`, `DeleteOrderFunction`).
   - *Trade-off*: One Lambda per operation provides finer-grained IAM security permissions (least privilege) and independent scaling/memory allocation, but multiplies cold starts and deployment complexity.
 * **Final Choice & Rationale**: We implemented the **Single Proxy Handler** as the primary production architecture for its cohesion, reduced cold starts, and testability, while keeping the standalone POJO handlers in the codebase to demonstrate Architecture A.
 
@@ -449,13 +446,55 @@ During development, the AI coding assistant proposed several architectural decis
 
 ---
 
-## 10. Project Structure
+## 10. Final Challenge — DELETE /orders/{id}
+
+### Pre-Implementation Prediction
+The prediction was written and committed **before** implementing the operation, in its own commit (`docs: prediction for DELETE /orders/{id}`), followed by the implementation commit (`feat: implement DELETE /orders/{id}`). See [`orders-api/PREDICTION.md`](orders-api/PREDICTION.md).
+
+Summary of the prediction:
+
+| Question | Prediction |
+| :--- | :--- |
+| Which Java classes should change? | `OrderRepository`, `InMemoryOrderRepository`, `OrderService`, `OrdersProxyHandler`. `Order` and `CreateOrderRequest` should not change. |
+| New Lambda function? | Not in Architecture B (the proxy handler routes by method). Yes in Architecture A (one POJO handler per operation). |
+| API Gateway changes? | Yes: `template.yaml` declares every route explicitly, so a `DELETE /orders/{id}` event must be added. |
+| Where does deletion logic live? | Application logic (`OrderService` + `OrderRepository`). |
+| Where is 204 vs 404 decided? | `OrderService` decides whether the order existed (throws `OrderNotFoundException`); `OrdersProxyHandler` maps success → 204 and the exception → 404. |
+| Tests to add | 2 in `OrderServiceTest`, 2 in `OrdersProxyHandlerTest`. |
+
+### Evaluation & Comparison
+
+The AI assistant was then asked to implement the operation. Comparison between the prediction and what the agent produced:
+
+| Aspect | Prediction | Agent implementation | Match? |
+| :--- | :--- | :--- | :--- |
+| Classes changed | 4 classes, domain entities untouched | Same 4 classes; `Order` / `CreateOrderRequest` untouched | Yes |
+| New Lambda | None for Architecture B | None; a new `case "DELETE"` in `OrdersProxyHandler` | Yes |
+| Architecture A | Would need a new POJO handler + mappings | Not implemented: DELETE exists only in Architecture B | Partial — the agent skipped it |
+| API Gateway | New route in `template.yaml` | Added `DeleteOrderById` event (`DELETE /orders/{id}`) | Yes |
+| 204 / 404 decision | Service signals existence, adapter picks status | `deleteOrder` throws `OrderNotFoundException`; the existing `catch` returns 404, success returns 204 | Yes |
+| Tests | 4 new tests | 4 new tests (2 service, 2 adapter) | Yes |
+| Extra | — | Added an example proxy event `events/apigw-proxy-delete-order.json` | Not predicted |
+
+**Observations:**
+* The prediction was correct because the responsibilities were already separated: the change touched the repository, the service and one `case` in the adapter, and no domain entity.
+* The agent's earlier explanation claimed that no API Gateway change was needed (assuming a greedy `{proxy+}` route). That is not true for this project: the SAM template declares each route, so the new route **was** required.
+* The 204 response still carries a `Content-Type: application/json` header with an empty body. It works, but it is unnecessary for a response without content.
+
+**Verification:**
+* `DELETE /orders/ORD-001` → **`204 No Content`** with an empty body.
+* `DELETE /orders/ORD-999` → **`404 Not Found`** with `{ "error": "ORDER_NOT_FOUND", "message": "Order ORD-999 does not exist" }`.
+
+---
+
+## 11. Project Structure
 
 ```
 Designing-a-Serverless-REST-API-with-AWS-Lambda-and-API-Gateway/
 ├── README.md                                  # Complete Workshop Report & Guide
 ├── orders-api/
 │   ├── pom.xml                               # Java 17 Maven build & Shade plugin
+│   ├── PREDICTION.md                         # Committed prediction for Final Challenge
 │   ├── template.yaml                         # AWS SAM CloudFormation template
 │   ├── api-gateway/
 │   │   └── vtl/
@@ -466,6 +505,7 @@ Designing-a-Serverless-REST-API-with-AWS-Lambda-and-API-Gateway/
 │   │   ├── apigw-proxy-post-order.json       # Sample Proxy POST event
 │   │   ├── apigw-proxy-get-order-by-id.json  # Sample Proxy GET by ID event
 │   │   ├── apigw-proxy-get-orders-by-customer.json # Sample Proxy GET by customer event
+│   │   ├── apigw-proxy-delete-order.json     # Sample Proxy DELETE event
 │   │   ├── pojo-create-order-input1.json     # Sample direct POJO input 1
 │   │   ├── pojo-create-order-input2.json     # Sample direct POJO input 2
 │   │   └── pojo-get-order-input.json         # Sample direct POJO GET input
@@ -491,20 +531,20 @@ Designing-a-Serverless-REST-API-with-AWS-Lambda-and-API-Gateway/
 │       │           └── OrdersProxyHandler.java # HTTP Adapter / Front Controller
 │       └── test/java/com/serverless/workshop/
 │           ├── service/
-│           │   └── OrderServiceTest.java     # Domain unit tests (6 tests)
+│           │   └── OrderServiceTest.java     # Domain unit tests (8 tests)
 │           └── lambda/
 │               ├── pojo/
 │               │   └── PojoHandlersTest.java # POJO handler unit tests (5 tests)
 │               └── proxy/
-│                   └── OrdersProxyHandlerTest.java # HTTP Adapter unit tests (8 tests)
+│                   └── OrdersProxyHandlerTest.java # HTTP Adapter unit tests (10 tests)
 ```
 
 ---
 
-## 11. Step-by-Step Build, Test, and Demonstration Guide
+## 12. Step-by-Step Build, Test, and Demonstration Guide
 
 ### 1. Run Unit Tests Locally
-Execute all 19 unit tests verifying domain logic, POJO handlers, and the HTTP adapter:
+Execute all 23 unit tests verifying domain logic, POJO handlers, and the HTTP adapter:
 ```bash
 cd orders-api
 mvn clean test
@@ -514,12 +554,12 @@ mvn clean test
 [INFO] Running com.serverless.workshop.lambda.pojo.PojoHandlersTest
 [INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
 [INFO] Running com.serverless.workshop.lambda.proxy.OrdersProxyHandlerTest
-[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0
 [INFO] Running com.serverless.workshop.service.OrderServiceTest
-[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0
 [INFO] 
 [INFO] Results:
-[INFO] Tests run: 19, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 23, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 
@@ -630,9 +670,33 @@ Content-Type: application/json
 }
 ```
 
+#### Delete Order (DELETE)
+```bash
+curl -i -X DELETE https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders/ORD-001
+```
+*Response:*
+```http
+HTTP/1.1 204 No Content
+```
+
+And deleting a non-existent order:
+```bash
+curl -i -X DELETE https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders/ORD-999
+```
+*Response:*
+```http
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+
+{
+  "error": "ORDER_NOT_FOUND",
+  "message": "Order ORD-999 does not exist"
+}
+```
+
 ---
 
-## 12. Summary Conclusion
+## 13. Summary Conclusion
 This project demonstrates that in modern serverless engineering:
 * **The Core Domain must remain pristine**: Keeping business rules independent of AWS or HTTP protocols ensures testability, maintainability, and clean architecture.
 * **The HTTP Adapter bridges the protocol**: `OrdersProxyHandler` encapsulates HTTP concerns, headers, and status code mappings.

@@ -82,4 +82,21 @@ public class OrderService {
         }
         return orderRepository.findByCustomerId(customerId.trim());
     }
+
+    /**
+     * Deletes an order by its ID.
+     *
+     * @param id the order ID to delete
+     * @throws InvalidOrderException if ID is null or blank
+     * @throws OrderNotFoundException if no order matches the ID
+     */
+    public void deleteOrder(String id) {
+        if (id == null || id.trim().isEmpty()) {
+            throw new InvalidOrderException("Order id must not be empty");
+        }
+        boolean deleted = orderRepository.deleteById(id.trim());
+        if (!deleted) {
+            throw new OrderNotFoundException(id.trim());
+        }
+    }
 }

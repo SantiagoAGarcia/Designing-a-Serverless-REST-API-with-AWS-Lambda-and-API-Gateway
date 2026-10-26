@@ -1,0 +1,22 @@
+{
+  "resource": "/orders/{id}",
+  "path": "/orders/ORD-001",
+  "httpMethod": "DELETE",
+  "headers": {
+    "Accept": "application/json",
+    "Host": "api.example.com"
+  },
+  "queryStringParameters": null,
+  "pathParameters": {
+    "id": "ORD-001"
+  },
+  "stageVariables": null,
+  "requestContext": {
+    "resourcePath": "/orders/{id}",
+    "httpMethod": "DELETE",
+    "stage": "prod",
+    "requestId": "delete-order-001"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}

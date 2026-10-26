@@ -14,6 +14,7 @@ public interface OrderRepository {
     List<Order> findByCustomerId(String customerId);
     List<Order> findAll();
     Order save(Order order);
+    boolean deleteById(String id);
     boolean existsById(String id);
     void clear();
 }

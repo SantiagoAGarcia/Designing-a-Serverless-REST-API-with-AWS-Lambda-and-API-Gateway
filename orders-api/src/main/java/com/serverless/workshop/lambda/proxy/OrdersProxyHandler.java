@@ -69,9 +69,16 @@ public class OrdersProxyHandler implements RequestHandler<APIGatewayProxyRequest
                     }
                     break;
 
+                case "DELETE":
+                    String deleteOrderId = extractOrderId(request, path);
+                    if (deleteOrderId != null) {
+                        return handleDeleteOrder(deleteOrderId);
+                    }
+                    break;
+
                 case "OPTIONS":
                     return buildResponse(204, null, Map.of(
-                            "Access-Control-Allow-Methods", "GET,POST,OPTIONS",
+                            "Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS",
                             "Access-Control-Allow-Headers", "Content-Type,X-Amz-Date,Authorization,X-Api-Key"
                     ));
 
@@ -124,6 +131,12 @@ public class OrdersProxyHandler implements RequestHandler<APIGatewayProxyRequest
 
         List<Order> orders = orderService.getOrdersByCustomer(customerId);
         return buildResponse(200, orders);
+    }
+
+    private APIGatewayProxyResponseEvent handleDeleteOrder(String orderId) {
+        orderService.deleteOrder(orderId);
+        // 204 No Content with empty body
+        return buildResponse(204, null);
     }
 
     private boolean isOrdersCollectionPath(String path) {

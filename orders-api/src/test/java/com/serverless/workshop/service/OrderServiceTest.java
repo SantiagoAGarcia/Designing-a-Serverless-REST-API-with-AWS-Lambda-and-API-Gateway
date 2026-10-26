@@ -109,4 +109,18 @@ class OrderServiceTest {
         assertThrows(InvalidOrderException.class, () -> service.getOrdersByCustomer(null));
         assertThrows(InvalidOrderException.class, () -> service.getOrdersByCustomer("   "));
     }
+
+    @Test
+    @DisplayName("Deleting an existing order succeeds")
+    void testDeleteExistingOrder() {
+        assertNotNull(service.getOrder("ORD-001"));
+        service.deleteOrder("ORD-001");
+        assertThrows(OrderNotFoundException.class, () -> service.getOrder("ORD-001"));
+    }
+
+    @Test
+    @DisplayName("Deleting a non-existent order throws OrderNotFoundException")
+    void testDeleteNonExistentOrder() {
+        assertThrows(OrderNotFoundException.class, () -> service.deleteOrder("ORD-999"));
+    }
 }

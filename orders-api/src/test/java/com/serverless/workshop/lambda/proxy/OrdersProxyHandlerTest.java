@@ -142,6 +142,35 @@ class OrdersProxyHandlerTest {
     }
 
     @Test
+    @DisplayName("DELETE /orders/{id} for existing order returns 204 No Content")
+    void testDeleteOrderSuccess() {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("DELETE");
+        request.setPath("/orders/ORD-001");
+        request.setPathParameters(Map.of("id", "ORD-001"));
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(204, response.getStatusCode());
+        assertNull(response.getBody());
+    }
+
+    @Test
+    @DisplayName("DELETE /orders/{id} for missing order returns 404 Not Found")
+    void testDeleteOrderNotFound() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("DELETE");
+        request.setPath("/orders/ORD-999");
+        request.setPathParameters(Map.of("id", "ORD-999"));
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(404, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("ORDER_NOT_FOUND", jsonNode.get("error").asText());
+    }
+
+    @Test
     @DisplayName("OPTIONS /orders returns 204 with CORS headers")
     void testOptionsPreflight() {
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();

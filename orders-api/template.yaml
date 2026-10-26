@@ -33,6 +33,11 @@ Resources:
           Properties:
             Path: /orders/{id}
             Method: get
+        DeleteOrderById:
+          Type: Api
+          Properties:
+            Path: /orders/{id}
+            Method: delete
 
   # Architecture A: Direct POJO Function for manual invocation and non-proxy integration
   CreateOrderPojoFunction:

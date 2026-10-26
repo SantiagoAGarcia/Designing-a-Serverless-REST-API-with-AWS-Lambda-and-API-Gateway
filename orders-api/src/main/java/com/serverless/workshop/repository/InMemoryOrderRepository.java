@@ -60,6 +60,14 @@ public class InMemoryOrderRepository implements OrderRepository {
     }
 
     @Override
+    public boolean deleteById(String id) {
+        if (id == null) {
+            return false;
+        }
+        return storage.remove(id) != null;
+    }
+
+    @Override
     public boolean existsById(String id) {
         return id != null && storage.containsKey(id);
     }

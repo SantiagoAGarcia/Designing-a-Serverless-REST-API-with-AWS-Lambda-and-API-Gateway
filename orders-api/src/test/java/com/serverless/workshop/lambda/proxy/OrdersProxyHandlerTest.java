@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.serverless.workshop.domain.Order;
 import com.serverless.workshop.repository.InMemoryOrderRepository;
 import com.serverless.workshop.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -171,15 +172,81 @@ class OrdersProxyHandlerTest {
     }
 
     @Test
-    @DisplayName("OPTIONS /orders returns 204 with CORS headers")
-    void testOptionsPreflight() {
-        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
-        request.setHttpMethod("OPTIONS");
-        request.setPath("/orders");
+    @DisplayName("POST /orders ignores unknown JSON fields and returns 201 Created")
+    void testPostOrdersIgnoresUnknownFields() throws Exception {
+        APIGatewayProxyResponseEvent response = handler.handleRequest(
+                request("POST", "/orders", "{\"customerId\":\"CUST-1\",\"product\":\"Mouse\",\"quantity\":1,\"extra\":true}"), null);
 
-        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+        assertEquals(201, response.getStatusCode());
+    }
+
+    @Test
+    @DisplayName("POST /orders with a wrong field type returns 400 without parser internals")
+    void testPostOrdersInvalidFieldType() throws Exception {
+        APIGatewayProxyResponseEvent response = handler.handleRequest(
+                request("POST", "/orders", "{\"customerId\":\"CUST-1\",\"product\":\"Mouse\",\"quantity\":\"abc\"}"), null);
+
+        assertEquals(400, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("BAD_REQUEST", jsonNode.get("error").asText());
+        assertEquals("Invalid value for field 'quantity'", jsonNode.get("message").asText());
+    }
+
+    @Test
+    @DisplayName("DELETE /orders/{id} returns 204 without Content-Type header")
+    void testDeleteOrderHasNoContentType() {
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request("DELETE", "/orders/ORD-042", null), null);
 
         assertEquals(204, response.getStatusCode());
-        assertNotNull(response.getHeaders().get("Access-Control-Allow-Methods"));
+        assertNull(response.getHeaders().get("Content-Type"));
+    }
+
+    @Test
+    @DisplayName("Unsupported method on an existing resource returns 405 with Allow header")
+    void testMethodNotAllowed() throws Exception {
+        APIGatewayProxyResponseEvent itemResponse = handler.handleRequest(request("POST", "/orders/ORD-001", null), null);
+        assertEquals(405, itemResponse.getStatusCode());
+        assertEquals("GET, DELETE", itemResponse.getHeaders().get("Allow"));
+        assertEquals("METHOD_NOT_ALLOWED", objectMapper.readTree(itemResponse.getBody()).get("error").asText());
+
+        APIGatewayProxyResponseEvent collectionResponse = handler.handleRequest(request("PUT", "/orders", null), null);
+        assertEquals(405, collectionResponse.getStatusCode());
+        assertEquals("GET, POST", collectionResponse.getHeaders().get("Allow"));
+    }
+
+    @Test
+    @DisplayName("Unknown path returns 404 ROUTE_NOT_FOUND")
+    void testUnknownRoute() throws Exception {
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request("GET", "/customers", null), null);
+
+        assertEquals(404, response.getStatusCode());
+        assertEquals("ROUTE_NOT_FOUND", objectMapper.readTree(response.getBody()).get("error").asText());
+    }
+
+    @Test
+    @DisplayName("Unexpected internal error returns 500 without leaking details")
+    void testUnexpectedErrorReturns500() throws Exception {
+        OrderService failingService = new OrderService(new InMemoryOrderRepository()) {
+            @Override
+            public Order getOrder(String id) {
+                throw new IllegalStateException("simulated failure");
+            }
+        };
+        OrdersProxyHandler failingHandler = new OrdersProxyHandler(failingService, objectMapper);
+
+        APIGatewayProxyResponseEvent response = failingHandler.handleRequest(request("GET", "/orders/ORD-001", null), null);
+
+        assertEquals(500, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("INTERNAL_SERVER_ERROR", jsonNode.get("error").asText());
+        assertEquals("An unexpected internal error occurred", jsonNode.get("message").asText());
+    }
+
+    private static APIGatewayProxyRequestEvent request(String method, String path, String body) {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod(method);
+        request.setPath(path);
+        request.setBody(body);
+        return request;
     }
 }

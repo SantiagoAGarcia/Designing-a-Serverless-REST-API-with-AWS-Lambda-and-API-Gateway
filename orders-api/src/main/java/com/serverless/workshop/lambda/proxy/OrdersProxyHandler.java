@@ -5,9 +5,11 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.serverless.workshop.domain.CreateOrderRequest;
-import com.serverless.workshop.domain.ErrorResponse;
 import com.serverless.workshop.domain.InvalidOrderException;
 import com.serverless.workshop.domain.Order;
 import com.serverless.workshop.domain.OrderNotFoundException;
@@ -20,12 +22,20 @@ import java.util.Map;
 
 /**
  * AWS Lambda HTTP Adapter implementing Architecture B (Lambda Proxy Integration).
- * Acts as the boundary adapter translating API Gateway proxy events into domain service calls
- * and mapping domain outcomes to proper HTTP status codes, headers, and JSON responses.
+ * Translates API Gateway proxy events into domain service calls and maps domain
+ * outcomes to HTTP status codes, headers and JSON bodies.
+ *
+ * Routes:
+ *   /orders       GET (requires ?customerId=...), POST
+ *   /orders/{id}  GET, DELETE
+ * A known path with an unsupported method returns 405; an unknown path returns 404.
  *
  * Handler signature: com.serverless.workshop.lambda.proxy.OrdersProxyHandler::handleRequest
  */
 public class OrdersProxyHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+
+    private static final String COLLECTION_METHODS = "GET, POST";
+    private static final String ITEM_METHODS = "GET, DELETE";
 
     private final OrderService orderService;
     private final ObjectMapper objectMapper;
@@ -36,89 +46,71 @@ public class OrdersProxyHandler implements RequestHandler<APIGatewayProxyRequest
 
     public OrdersProxyHandler(OrderService orderService, ObjectMapper objectMapper) {
         this.orderService = orderService;
-        this.objectMapper = objectMapper;
+        // Unknown JSON fields are ignored, the same way the Lambda runtime does for POJO handlers.
+        this.objectMapper = objectMapper.copy()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
         if (request == null) {
-            return buildResponse(400, new ErrorResponse("BAD_REQUEST", "Request event cannot be null"));
+            return error(400, "BAD_REQUEST", "Request event cannot be null");
         }
 
         String httpMethod = request.getHttpMethod() != null ? request.getHttpMethod().toUpperCase() : "";
         String path = request.getPath() != null ? request.getPath() : "";
-
-        if (context != null && context.getLogger() != null) {
-            context.getLogger().log("Incoming HTTP Request: " + httpMethod + " " + path);
-        }
+        logEvent(request, context);
 
         try {
-            switch (httpMethod) {
-                case "POST":
-                    if (isOrdersCollectionPath(path)) {
-                        return handleCreateOrder(request);
-                    }
-                    break;
-
-                case "GET":
-                    String orderIdFromPath = extractOrderId(request, path);
-                    if (orderIdFromPath != null) {
-                        return handleGetOrderById(orderIdFromPath);
-                    } else if (isOrdersCollectionPath(path)) {
+            if (isOrdersCollectionPath(path)) {
+                switch (httpMethod) {
+                    case "GET":
                         return handleGetOrdersByCustomer(request);
-                    }
-                    break;
-
-                case "DELETE":
-                    String deleteOrderId = extractOrderId(request, path);
-                    if (deleteOrderId != null) {
-                        return handleDeleteOrder(deleteOrderId);
-                    }
-                    break;
-
-                case "OPTIONS":
-                    return buildResponse(204, null, Map.of(
-                            "Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS",
-                            "Access-Control-Allow-Headers", "Content-Type,X-Amz-Date,Authorization,X-Api-Key"
-                    ));
-
-                default:
-                    return buildResponse(405, new ErrorResponse("METHOD_NOT_ALLOWED", "Method " + httpMethod + " not supported"));
+                    case "POST":
+                        return handleCreateOrder(request);
+                    default:
+                        return methodNotAllowed(httpMethod, path, COLLECTION_METHODS);
+                }
             }
 
-            return buildResponse(404, new ErrorResponse("ROUTE_NOT_FOUND", "No route found for " + httpMethod + " " + path));
+            String orderId = extractOrderId(request, path);
+            if (orderId != null) {
+                switch (httpMethod) {
+                    case "GET":
+                        return buildResponse(200, orderService.getOrder(orderId));
+                    case "DELETE":
+                        orderService.deleteOrder(orderId);
+                        return buildResponse(204, null);
+                    default:
+                        return methodNotAllowed(httpMethod, path, ITEM_METHODS);
+                }
+            }
+
+            return error(404, "ROUTE_NOT_FOUND", "No route found for " + httpMethod + " " + path);
 
         } catch (OrderNotFoundException e) {
-            return buildResponse(404, new ErrorResponse("ORDER_NOT_FOUND", e.getMessage()));
+            return error(404, "ORDER_NOT_FOUND", e.getMessage());
         } catch (InvalidOrderException e) {
-            return buildResponse(400, new ErrorResponse("INVALID_INPUT", e.getMessage()));
+            return error(400, "INVALID_INPUT", e.getMessage());
         } catch (JsonProcessingException e) {
-            return buildResponse(400, new ErrorResponse("BAD_REQUEST", "Malformed JSON body: " + e.getMessage()));
+            return error(400, "BAD_REQUEST", describeJsonError(e));
         } catch (Exception e) {
             if (context != null && context.getLogger() != null) {
-                context.getLogger().log("Unexpected internal server error: " + e.getMessage());
+                context.getLogger().log("Unexpected internal server error: " + e);
             }
-            return buildResponse(500, new ErrorResponse("INTERNAL_SERVER_ERROR", "An unexpected internal error occurred"));
+            return error(500, "INTERNAL_SERVER_ERROR", "An unexpected internal error occurred");
         }
     }
 
     private APIGatewayProxyResponseEvent handleCreateOrder(APIGatewayProxyRequestEvent request) throws JsonProcessingException {
         if (request.getBody() == null || request.getBody().trim().isEmpty()) {
-            return buildResponse(400, new ErrorResponse("INVALID_INPUT", "Request body cannot be empty"));
+            return error(400, "INVALID_INPUT", "Request body cannot be empty");
         }
 
         CreateOrderRequest createRequest = objectMapper.readValue(request.getBody(), CreateOrderRequest.class);
         Order createdOrder = orderService.createOrder(createRequest);
 
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Location", "/orders/" + createdOrder.getId());
-
-        return buildResponse(201, createdOrder, headers);
-    }
-
-    private APIGatewayProxyResponseEvent handleGetOrderById(String orderId) {
-        Order order = orderService.getOrder(orderId);
-        return buildResponse(200, order);
+        return buildResponse(201, createdOrder, Map.of("Location", "/orders/" + createdOrder.getId()));
     }
 
     private APIGatewayProxyResponseEvent handleGetOrdersByCustomer(APIGatewayProxyRequestEvent request) {
@@ -126,17 +118,22 @@ public class OrdersProxyHandler implements RequestHandler<APIGatewayProxyRequest
         String customerId = queryParams != null ? queryParams.get("customerId") : null;
 
         if (customerId == null || customerId.trim().isEmpty()) {
-            return buildResponse(400, new ErrorResponse("INVALID_INPUT", "customerId query parameter is required"));
+            return error(400, "INVALID_INPUT", "customerId query parameter is required");
         }
 
         List<Order> orders = orderService.getOrdersByCustomer(customerId);
         return buildResponse(200, orders);
     }
 
-    private APIGatewayProxyResponseEvent handleDeleteOrder(String orderId) {
-        orderService.deleteOrder(orderId);
-        // 204 No Content with empty body
-        return buildResponse(204, null);
+    /** Builds a client-friendly message without exposing Java class names or parser internals. */
+    private String describeJsonError(JsonProcessingException e) {
+        if (e instanceof MismatchedInputException mismatch && !mismatch.getPath().isEmpty()) {
+            JsonMappingException.Reference field = mismatch.getPath().get(mismatch.getPath().size() - 1);
+            if (field.getFieldName() != null) {
+                return "Invalid value for field '" + field.getFieldName() + "'";
+            }
+        }
+        return "Request body is not valid JSON";
     }
 
     private boolean isOrdersCollectionPath(String path) {
@@ -157,6 +154,28 @@ public class OrdersProxyHandler implements RequestHandler<APIGatewayProxyRequest
         return null;
     }
 
+    /** Logs the complete proxy event so a real example can be copied from CloudWatch Logs. */
+    private void logEvent(APIGatewayProxyRequestEvent request, Context context) {
+        if (context == null || context.getLogger() == null) {
+            return;
+        }
+        try {
+            context.getLogger().log("API Gateway proxy event: " + objectMapper.writeValueAsString(request));
+        } catch (Exception e) {
+            context.getLogger().log("Incoming HTTP Request: " + request.getHttpMethod() + " " + request.getPath());
+        }
+    }
+
+    private APIGatewayProxyResponseEvent methodNotAllowed(String method, String path, String allowed) {
+        return buildResponse(405,
+                new ErrorResponse("METHOD_NOT_ALLOWED", "Method " + method + " is not allowed on " + path),
+                Map.of("Allow", allowed));
+    }
+
+    private APIGatewayProxyResponseEvent error(int statusCode, String code, String message) {
+        return buildResponse(statusCode, new ErrorResponse(code, message));
+    }
+
     private APIGatewayProxyResponseEvent buildResponse(int statusCode, Object body) {
         return buildResponse(statusCode, body, Map.of());
     }
@@ -166,24 +185,20 @@ public class OrdersProxyHandler implements RequestHandler<APIGatewayProxyRequest
         response.setStatusCode(statusCode);
 
         Map<String, String> headers = new HashMap<>();
-        headers.put("Content-Type", "application/json");
         headers.put("Access-Control-Allow-Origin", "*");
-        if (extraHeaders != null) {
-            headers.putAll(extraHeaders);
-        }
-        response.setHeaders(headers);
+        headers.putAll(extraHeaders);
 
         if (body != null) {
+            headers.put("Content-Type", "application/json");
             try {
                 response.setBody(objectMapper.writeValueAsString(body));
             } catch (JsonProcessingException e) {
                 response.setStatusCode(500);
-                response.setBody("{\"error\":\"SERIALIZATION_ERROR\",\"message\":\"Failed to serialize response\"}");
+                response.setBody("{\"error\":\"INTERNAL_SERVER_ERROR\",\"message\":\"Failed to serialize response\"}");
             }
-        } else {
-            response.setBody(null);
         }
-
+        // 204 No Content: no body and therefore no Content-Type header.
+        response.setHeaders(headers);
         return response;
     }
 }

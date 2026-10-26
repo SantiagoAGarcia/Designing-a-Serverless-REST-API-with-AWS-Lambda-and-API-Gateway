@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Orders Serverless API - AWS Lambda & API Gateway Workshop
+
+Globals:
+  Function:
+    Timeout: 15
+    MemorySize: 512
+    Runtime: java17
+    Architectures:
+      - x86_64
+
+Resources:
+  # Architecture B: HTTP Proxy Integration using OrdersProxyHandler
+  OrdersProxyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/orders-api-1.0.0.jar
+      Handler: com.serverless.workshop.lambda.proxy.OrdersProxyHandler::handleRequest
+      Events:
+        CreateOrder:
+          Type: Api
+          Properties:
+            Path: /orders
+            Method: post
+        GetOrders:
+          Type: Api
+          Properties:
+            Path: /orders
+            Method: get
+        GetOrderById:
+          Type: Api
+          Properties:
+            Path: /orders/{id}
+            Method: get
+
+  # Architecture A: Direct POJO Function for manual invocation and non-proxy integration
+  CreateOrderPojoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/orders-api-1.0.0.jar
+      Handler: com.serverless.workshop.lambda.pojo.CreateOrderPojoHandler::handleRequest
+
+  GetOrderPojoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/orders-api-1.0.0.jar
+      Handler: com.serverless.workshop.lambda.pojo.GetOrderPojoHandler::handleRequest
+
+Outputs:
+  ProxyApiEndpoint:
+    Description: "API Gateway Proxy Endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/orders"
+  OrdersProxyFunctionArn:
+    Description: "Proxy Lambda Function ARN"
+    Value: !GetAtt OrdersProxyFunction.Arn

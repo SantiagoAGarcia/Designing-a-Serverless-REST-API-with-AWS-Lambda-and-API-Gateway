@@ -1,0 +1,156 @@
+package com.serverless.workshop.lambda.proxy;
+
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.serverless.workshop.repository.InMemoryOrderRepository;
+import com.serverless.workshop.service.OrderService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@DisplayName("OrdersProxyHandler HTTP Adapter Tests (Architecture B)")
+class OrdersProxyHandlerTest {
+
+    private OrdersProxyHandler handler;
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        InMemoryOrderRepository repository = new InMemoryOrderRepository();
+        OrderService service = new OrderService(repository);
+        objectMapper = new ObjectMapper();
+        handler = new OrdersProxyHandler(service, objectMapper);
+    }
+
+    @Test
+    @DisplayName("POST /orders creates order and returns 201 Created with Location header")
+    void testPostOrdersSuccess() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("POST");
+        request.setPath("/orders");
+        request.setBody("{\"customerId\":\"CUST-42\",\"product\":\"MacBook Pro\",\"quantity\":2}");
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(201, response.getStatusCode());
+        assertNotNull(response.getHeaders().get("Location"));
+        assertTrue(response.getHeaders().get("Location").startsWith("/orders/ORD-"));
+
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertTrue(jsonNode.get("id").asText().startsWith("ORD-"));
+        assertEquals("CUST-42", jsonNode.get("customerId").asText());
+        assertEquals("MacBook Pro", jsonNode.get("product").asText());
+        assertEquals(2, jsonNode.get("quantity").asInt());
+    }
+
+    @Test
+    @DisplayName("POST /orders with invalid data returns 400 Bad Request")
+    void testPostOrdersInvalidData() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("POST");
+        request.setPath("/orders");
+        request.setBody("{\"customerId\":\"\",\"product\":\"MacBook Pro\",\"quantity\":0}");
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(400, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("INVALID_INPUT", jsonNode.get("error").asText());
+    }
+
+    @Test
+    @DisplayName("POST /orders with malformed JSON body returns 400 Bad Request")
+    void testPostOrdersMalformedJson() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("POST");
+        request.setPath("/orders");
+        request.setBody("{invalid-json");
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(400, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("BAD_REQUEST", jsonNode.get("error").asText());
+    }
+
+    @Test
+    @DisplayName("GET /orders/{id} for existing order returns 200 OK")
+    void testGetOrderByIdSuccess() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("GET");
+        request.setPath("/orders/ORD-001");
+        request.setPathParameters(Map.of("id", "ORD-001"));
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(200, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("ORD-001", jsonNode.get("id").asText());
+        assertEquals("CUST-42", jsonNode.get("customerId").asText());
+    }
+
+    @Test
+    @DisplayName("GET /orders/{id} for missing order returns 404 Not Found")
+    void testGetOrderByIdNotFound() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("GET");
+        request.setPath("/orders/ORD-999");
+        request.setPathParameters(Map.of("id", "ORD-999"));
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(404, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("ORDER_NOT_FOUND", jsonNode.get("error").asText());
+        assertEquals("Order ORD-999 does not exist", jsonNode.get("message").asText());
+    }
+
+    @Test
+    @DisplayName("GET /orders?customerId=CUST-42 returns 200 OK with list of orders")
+    void testGetOrdersByCustomer() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("GET");
+        request.setPath("/orders");
+        request.setQueryStringParameters(Map.of("customerId", "CUST-42"));
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(200, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertTrue(jsonNode.isArray());
+        assertEquals(2, jsonNode.size());
+    }
+
+    @Test
+    @DisplayName("GET /orders without customerId query parameter returns 400 Bad Request")
+    void testGetOrdersMissingQueryParam() throws Exception {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("GET");
+        request.setPath("/orders");
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(400, response.getStatusCode());
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        assertEquals("INVALID_INPUT", jsonNode.get("error").asText());
+    }
+
+    @Test
+    @DisplayName("OPTIONS /orders returns 204 with CORS headers")
+    void testOptionsPreflight() {
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setHttpMethod("OPTIONS");
+        request.setPath("/orders");
+
+        APIGatewayProxyResponseEvent response = handler.handleRequest(request, null);
+
+        assertEquals(204, response.getStatusCode());
+        assertNotNull(response.getHeaders().get("Access-Control-Allow-Methods"));
+    }
+}

@@ -1,0 +1,22 @@
+{
+  "resource": "/orders",
+  "path": "/orders",
+  "httpMethod": "GET",
+  "headers": {
+    "Accept": "application/json",
+    "Host": "api.example.com"
+  },
+  "queryStringParameters": {
+    "customerId": "CUST-42"
+  },
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourcePath": "/orders",
+    "httpMethod": "GET",
+    "stage": "prod",
+    "requestId": "get-customer-orders-001"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}

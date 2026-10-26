@@ -1,0 +1,35 @@
+{
+  "resource": "/orders",
+  "path": "/orders",
+  "httpMethod": "POST",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "Host": "api.example.com",
+    "User-Agent": "curl/7.68.0"
+  },
+  "queryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourceId": "123456",
+    "resourcePath": "/orders",
+    "httpMethod": "POST",
+    "extendedRequestId": "c6DyGGFyvHcFsBQ=",
+    "requestTime": "25/Oct/2026:21:00:00 +0000",
+    "path": "/orders",
+    "accountId": "123456789012",
+    "protocol": "HTTP/1.1",
+    "stage": "prod",
+    "domainPrefix": "api",
+    "requestId": "c6DyGGFyvHcFsBQ=",
+    "identity": {
+      "sourceIp": "192.0.2.1",
+      "userAgent": "curl/7.68.0"
+    },
+    "domainName": "api.example.com",
+    "apiId": "abcd1234ef"
+  },
+  "body": "{\"customerId\":\"CUST-42\",\"product\":\"MacBook Air\",\"quantity\":1}",
+  "isBase64Encoded": false
+}

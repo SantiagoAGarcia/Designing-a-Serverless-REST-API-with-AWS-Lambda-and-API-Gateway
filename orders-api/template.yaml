@@ -1,6 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Orders Serverless API - AWS Lambda & API Gateway Workshop
+Description: Orders Serverless API - AWS Lambda & API Gateway Workshop (Architecture A non-proxy + Architecture B proxy)
+
+Parameters:
+  LabRoleName:
+    Type: String
+    Default: LabRole
+    Description: >
+      Existing IAM role used by every Lambda. AWS Academy Learner Lab does not allow
+      creating IAM roles, so the pre-created "LabRole" is reused.
 
 Globals:
   Function:
@@ -9,14 +17,18 @@ Globals:
     Runtime: java17
     Architectures:
       - x86_64
+    CodeUri: target/orders-api-1.0.0.jar
 
 Resources:
-  # Architecture B: HTTP Proxy Integration using OrdersProxyHandler
+  # ---------------------------------------------------------------------------
+  # Architecture B: Lambda proxy integration (one HTTP adapter for all routes)
+  # ---------------------------------------------------------------------------
   OrdersProxyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: target/orders-api-1.0.0.jar
+      FunctionName: orders-proxy-handler
       Handler: com.serverless.workshop.lambda.proxy.OrdersProxyHandler::handleRequest
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LabRoleName}
       Events:
         CreateOrder:
           Type: Api
@@ -39,23 +51,181 @@ Resources:
             Path: /orders/{id}
             Method: delete
 
-  # Architecture A: Direct POJO Function for manual invocation and non-proxy integration
+  # ---------------------------------------------------------------------------
+  # Architecture A: POJO handlers + API Gateway non-proxy (custom) integration
+  # API Gateway extracts parameters (VTL request templates) and chooses status
+  # codes by matching the Lambda errorMessage (selection patterns).
+  # ---------------------------------------------------------------------------
   CreateOrderPojoFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: target/orders-api-1.0.0.jar
+      FunctionName: orders-create-order-pojo
       Handler: com.serverless.workshop.lambda.pojo.CreateOrderPojoHandler::handleRequest
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LabRoleName}
 
   GetOrderPojoFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: target/orders-api-1.0.0.jar
+      FunctionName: orders-get-order-pojo
       Handler: com.serverless.workshop.lambda.pojo.GetOrderPojoHandler::handleRequest
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LabRoleName}
+
+  NonProxyOrdersApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: orders-non-proxy-api
+      StageName: prod
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: orders-non-proxy-api
+          version: '1.0'
+        paths:
+          /orders:
+            get:
+              produces:
+                - application/json
+              parameters:
+                - name: customerId
+                  in: query
+                  required: false
+                  type: string
+              responses:
+                '200':
+                  description: Orders of the customer
+                '400':
+                  description: Invalid input
+                '500':
+                  description: Unexpected error
+              x-amazon-apigateway-integration:
+                type: aws
+                httpMethod: POST
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetOrderPojoFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                requestTemplates:
+                  application/json: |
+                    { "customerId": "$util.escapeJavaScript($input.params('customerId'))" }
+                responses:
+                  default:
+                    statusCode: '200'
+                  '(?s).*(required|must|cannot|JSON parsing).*':
+                    statusCode: '400'
+                    responseTemplates:
+                      application/json: |
+                        { "error": "INVALID_INPUT", "message": "$util.escapeJavaScript($input.path('$.errorMessage')).replaceAll("\\'", "'")" }
+                  '(?s)(?!.*(does not exist|required|must|cannot|JSON parsing)).+':
+                    statusCode: '500'
+                    responseTemplates:
+                      application/json: |
+                        { "error": "INTERNAL_SERVER_ERROR", "message": "An unexpected internal error occurred" }
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '201':
+                  description: Order created
+                '400':
+                  description: Invalid input
+                '500':
+                  description: Unexpected error
+              x-amazon-apigateway-integration:
+                type: aws
+                httpMethod: POST
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateOrderPojoFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                requestTemplates:
+                  application/json: $input.json('$')
+                responses:
+                  default:
+                    statusCode: '201'
+                  '(?s).*(required|must|cannot|JSON parsing).*':
+                    statusCode: '400'
+                    responseTemplates:
+                      application/json: |
+                        { "error": "INVALID_INPUT", "message": "$util.escapeJavaScript($input.path('$.errorMessage')).replaceAll("\\'", "'")" }
+                  '(?s)(?!.*(does not exist|required|must|cannot|JSON parsing)).+':
+                    statusCode: '500'
+                    responseTemplates:
+                      application/json: |
+                        { "error": "INTERNAL_SERVER_ERROR", "message": "An unexpected internal error occurred" }
+          /orders/{id}:
+            get:
+              produces:
+                - application/json
+              parameters:
+                - name: id
+                  in: path
+                  required: true
+                  type: string
+              responses:
+                '200':
+                  description: The order
+                '400':
+                  description: Invalid input
+                '404':
+                  description: Order not found
+                '500':
+                  description: Unexpected error
+              x-amazon-apigateway-integration:
+                type: aws
+                httpMethod: POST
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetOrderPojoFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                requestTemplates:
+                  application/json: |
+                    { "id": "$util.escapeJavaScript($input.params('id'))" }
+                responses:
+                  default:
+                    statusCode: '200'
+                  '(?s).*does not exist.*':
+                    statusCode: '404'
+                    responseTemplates:
+                      application/json: |
+                        { "error": "ORDER_NOT_FOUND", "message": "$util.escapeJavaScript($input.path('$.errorMessage')).replaceAll("\\'", "'")" }
+                  '(?s).*(required|must|cannot|JSON parsing).*':
+                    statusCode: '400'
+                    responseTemplates:
+                      application/json: |
+                        { "error": "INVALID_INPUT", "message": "$util.escapeJavaScript($input.path('$.errorMessage')).replaceAll("\\'", "'")" }
+                  '(?s)(?!.*(does not exist|required|must|cannot|JSON parsing)).+':
+                    statusCode: '500'
+                    responseTemplates:
+                      application/json: |
+                        { "error": "INTERNAL_SERVER_ERROR", "message": "An unexpected internal error occurred" }
+
+  # API Gateway needs explicit permission to invoke the POJO functions
+  # (SAM adds it automatically only for functions with Api events).
+  CreateOrderPojoInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref CreateOrderPojoFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${NonProxyOrdersApi}/*/*/*
+
+  GetOrderPojoInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GetOrderPojoFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${NonProxyOrdersApi}/*/*/*
 
 Outputs:
   ProxyApiEndpoint:
-    Description: "API Gateway Proxy Endpoint URL"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/orders"
-  OrdersProxyFunctionArn:
-    Description: "Proxy Lambda Function ARN"
-    Value: !GetAtt OrdersProxyFunction.Arn
+    Description: Architecture B - Lambda proxy integration endpoint
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/orders
+  NonProxyApiEndpoint:
+    Description: Architecture A - API Gateway non-proxy (mapping templates) endpoint
+    Value: !Sub https://${NonProxyOrdersApi}.execute-api.${AWS::Region}.amazonaws.com/prod/orders
+  ProxyFunctionName:
+    Description: Lambda used by Architecture B
+    Value: !Ref OrdersProxyFunction
+  CreateOrderPojoFunctionName:
+    Description: Lambda to invoke directly with aws lambda invoke (create order)
+    Value: !Ref CreateOrderPojoFunction
+  GetOrderPojoFunctionName:
+    Description: Lambda to invoke directly with aws lambda invoke (get order)
+    Value: !Ref GetOrderPojoFunction

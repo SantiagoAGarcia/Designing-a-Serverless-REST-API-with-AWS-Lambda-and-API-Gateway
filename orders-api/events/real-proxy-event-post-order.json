@@ -1,0 +1,117 @@
+{
+  "version": null,
+  "resource": "/orders",
+  "path": "/orders",
+  "httpMethod": "POST",
+  "headers": {
+    "Accept": "*/*",
+    "CloudFront-Forwarded-Proto": "https",
+    "CloudFront-Is-Desktop-Viewer": "true",
+    "CloudFront-Is-Mobile-Viewer": "false",
+    "CloudFront-Is-SmartTV-Viewer": "false",
+    "CloudFront-Is-Tablet-Viewer": "false",
+    "CloudFront-Viewer-ASN": "19429",
+    "CloudFront-Viewer-Country": "CO",
+    "Content-Type": "application/json",
+    "Host": "7a9dw9rl69.execute-api.us-east-1.amazonaws.com",
+    "User-Agent": "curl/8.13.0",
+    "Via": "1.1 b95bec14ad9d13967ac1da52182a5eb8.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Id": "Xp91VRTAORUyQMbrrCrNGlZYFJN_sbmgsQzepdds2xuYrmZj0JYk_g==",
+    "X-Amzn-Trace-Id": "Root=1-6adfef5f-574be2891c32fa9303bd19cb",
+    "X-Forwarded-For": "203.0.113.10, 203.0.113.10",
+    "X-Forwarded-Port": "443",
+    "X-Forwarded-Proto": "https"
+  },
+  "multiValueHeaders": {
+    "Accept": [
+      "*/*"
+    ],
+    "CloudFront-Forwarded-Proto": [
+      "https"
+    ],
+    "CloudFront-Is-Desktop-Viewer": [
+      "true"
+    ],
+    "CloudFront-Is-Mobile-Viewer": [
+      "false"
+    ],
+    "CloudFront-Is-SmartTV-Viewer": [
+      "false"
+    ],
+    "CloudFront-Is-Tablet-Viewer": [
+      "false"
+    ],
+    "CloudFront-Viewer-ASN": [
+      "19429"
+    ],
+    "CloudFront-Viewer-Country": [
+      "CO"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "Host": [
+      "7a9dw9rl69.execute-api.us-east-1.amazonaws.com"
+    ],
+    "User-Agent": [
+      "curl/8.13.0"
+    ],
+    "Via": [
+      "1.1 b95bec14ad9d13967ac1da52182a5eb8.cloudfront.net (CloudFront)"
+    ],
+    "X-Amz-Cf-Id": [
+      "Xp91VRTAORUyQMbrrCrNGlZYFJN_sbmgsQzepdds2xuYrmZj0JYk_g=="
+    ],
+    "X-Amzn-Trace-Id": [
+      "Root=1-6adfef5f-574be2891c32fa9303bd19cb"
+    ],
+    "X-Forwarded-For": [
+      "203.0.113.10, 203.0.113.10"
+    ],
+    "X-Forwarded-Port": [
+      "443"
+    ],
+    "X-Forwarded-Proto": [
+      "https"
+    ]
+  },
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "accountId": "123456789012",
+    "stage": "Prod",
+    "resourceId": "ktia2m",
+    "requestId": "4de94dc2-9f52-41dc-b3de-1a6ea48ea42e",
+    "operationName": null,
+    "identity": {
+      "cognitoIdentityPoolId": null,
+      "accountId": null,
+      "cognitoIdentityId": null,
+      "caller": null,
+      "apiKey": null,
+      "principalOrgId": null,
+      "sourceIp": "203.0.113.10",
+      "cognitoAuthenticationType": null,
+      "cognitoAuthenticationProvider": null,
+      "userArn": null,
+      "userAgent": "curl/8.13.0",
+      "user": null,
+      "accessKey": null
+    },
+    "resourcePath": "/orders",
+    "httpMethod": "POST",
+    "apiId": "7a9dw9rl69",
+    "path": "/Prod/orders",
+    "authorizer": null,
+    "extendedRequestId": "F4JXEHPdIAMEZ5Q=",
+    "requestTime": "27/Oct/2026:00:25:03 +0000",
+    "requestTimeEpoch": 1793060703937,
+    "domainName": "7a9dw9rl69.execute-api.us-east-1.amazonaws.com",
+    "domainPrefix": "7a9dw9rl69",
+    "protocol": "HTTP/1.1"
+  },
+  "body": "{\r\n  \"customerId\": \"CUST-42\",\r\n  \"product\": \"MacBook Air\",\r\n  \"quantity\": 1\r\n}\r\n",
+  "isBase64Encoded": false
+}

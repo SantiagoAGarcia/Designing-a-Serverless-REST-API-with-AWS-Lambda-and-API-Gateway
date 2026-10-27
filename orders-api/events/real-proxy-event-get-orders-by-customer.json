@@ -1,0 +1,119 @@
+{
+  "version": null,
+  "resource": "/orders",
+  "path": "/orders",
+  "httpMethod": "GET",
+  "headers": {
+    "Accept": "*/*",
+    "CloudFront-Forwarded-Proto": "https",
+    "CloudFront-Is-Desktop-Viewer": "true",
+    "CloudFront-Is-Mobile-Viewer": "false",
+    "CloudFront-Is-SmartTV-Viewer": "false",
+    "CloudFront-Is-Tablet-Viewer": "false",
+    "CloudFront-Viewer-ASN": "19429",
+    "CloudFront-Viewer-Country": "CO",
+    "Host": "7a9dw9rl69.execute-api.us-east-1.amazonaws.com",
+    "User-Agent": "curl/8.13.0",
+    "Via": "1.1 37294e3a7b5e85cba3a9df52b0d05a2a.cloudfront.net (CloudFront)",
+    "X-Amz-Cf-Id": "gacnZTckREL3J8Z4bw7H2WkGRSNgfGwNkIv6ZrdcxFk_nEzX0lwofQ==",
+    "X-Amzn-Trace-Id": "Root=1-6adfef62-6db2da4201334adb6682bab7",
+    "X-Forwarded-For": "203.0.113.10, 203.0.113.10",
+    "X-Forwarded-Port": "443",
+    "X-Forwarded-Proto": "https"
+  },
+  "multiValueHeaders": {
+    "Accept": [
+      "*/*"
+    ],
+    "CloudFront-Forwarded-Proto": [
+      "https"
+    ],
+    "CloudFront-Is-Desktop-Viewer": [
+      "true"
+    ],
+    "CloudFront-Is-Mobile-Viewer": [
+      "false"
+    ],
+    "CloudFront-Is-SmartTV-Viewer": [
+      "false"
+    ],
+    "CloudFront-Is-Tablet-Viewer": [
+      "false"
+    ],
+    "CloudFront-Viewer-ASN": [
+      "19429"
+    ],
+    "CloudFront-Viewer-Country": [
+      "CO"
+    ],
+    "Host": [
+      "7a9dw9rl69.execute-api.us-east-1.amazonaws.com"
+    ],
+    "User-Agent": [
+      "curl/8.13.0"
+    ],
+    "Via": [
+      "1.1 37294e3a7b5e85cba3a9df52b0d05a2a.cloudfront.net (CloudFront)"
+    ],
+    "X-Amz-Cf-Id": [
+      "gacnZTckREL3J8Z4bw7H2WkGRSNgfGwNkIv6ZrdcxFk_nEzX0lwofQ=="
+    ],
+    "X-Amzn-Trace-Id": [
+      "Root=1-6adfef62-6db2da4201334adb6682bab7"
+    ],
+    "X-Forwarded-For": [
+      "203.0.113.10, 203.0.113.10"
+    ],
+    "X-Forwarded-Port": [
+      "443"
+    ],
+    "X-Forwarded-Proto": [
+      "https"
+    ]
+  },
+  "queryStringParameters": {
+    "customerId": "CUST-42"
+  },
+  "multiValueQueryStringParameters": {
+    "customerId": [
+      "CUST-42"
+    ]
+  },
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "accountId": "123456789012",
+    "stage": "Prod",
+    "resourceId": "ktia2m",
+    "requestId": "4f5b731b-b944-4708-81c7-107c341c2494",
+    "operationName": null,
+    "identity": {
+      "cognitoIdentityPoolId": null,
+      "accountId": null,
+      "cognitoIdentityId": null,
+      "caller": null,
+      "apiKey": null,
+      "principalOrgId": null,
+      "sourceIp": "203.0.113.10",
+      "cognitoAuthenticationType": null,
+      "cognitoAuthenticationProvider": null,
+      "userArn": null,
+      "userAgent": "curl/8.13.0",
+      "user": null,
+      "accessKey": null
+    },
+    "resourcePath": "/orders",
+    "httpMethod": "GET",
+    "apiId": "7a9dw9rl69",
+    "path": "/Prod/orders",
+    "authorizer": null,
+    "extendedRequestId": "F4JXcF-goAMEXrQ=",
+    "requestTime": "27/Oct/2026:00:25:06 +0000",
+    "requestTimeEpoch": 1793060706323,
+    "domainName": "7a9dw9rl69.execute-api.us-east-1.amazonaws.com",
+    "domainPrefix": "7a9dw9rl69",
+    "protocol": "HTTP/1.1"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}

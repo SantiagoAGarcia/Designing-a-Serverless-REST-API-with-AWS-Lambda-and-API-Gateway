@@ -531,6 +531,6 @@ sam delete --stack-name orders-api
 
 ## 14. Demonstration Video
 
-**Video:** _TODO — add link_
+**Video:** [Demonstration Video](https://drive.google.com/file/d/1SKAMsWuFsO1ZR17DSylzzSrP2Kz33tIR/view?usp=sharing)
 
 Contents: `mvn test`, `mvn package`, direct `aws lambda invoke`, successful POST and GET, a 404 and a 400 response, the DELETE extension (204 / 404) and the architecture diagram.

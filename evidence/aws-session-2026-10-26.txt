@@ -1,0 +1,741 @@
+**********************
+Inicio de la transcripción de Windows PowerShell
+Hora de inicio: 20261026191351
+Nombre de usuario: DESKTOP-M3SFUK6\santi
+Usuario RunAs: DESKTOP-M3SFUK6\santi
+Nombre de la configuración: 
+Máquina: DESKTOP-M3SFUK6 (Microsoft Windows NT 10.0.19045.0)
+Aplicación host: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Id. de proceso: 1144
+PSVersion: 5.1.19041.7802
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.19041.7802
+BuildVersion: 10.0.19041.7802
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+La transcripción ha comenzado. El archivo de salida es evidencias\sesion-aws.txt
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> mvn clean test
+[INFO] Scanning for projects...
+[INFO]
+[INFO] -----------------< com.serverless.workshop:orders-api >-----------------
+[INFO] Building Orders Serverless API 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- clean:3.2.0:clean (default-clean) @ orders-api ---
+[INFO]
+[INFO] --- resources:3.3.1:resources (default-resources) @ orders-api ---
+[INFO] skip non existing resourceDirectory C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\src\main\resources
+[INFO]
+[INFO] --- compiler:3.11.0:compile (default-compile) @ orders-api ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 12 source files with javac [debug target 17] to target\classes
+[WARNING] system modules path not set in conjunction with -source 17
+[INFO]
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ orders-api ---
+[INFO] skip non existing resourceDirectory C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\src\test\resources
+[INFO]
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ orders-api ---
+[INFO] Changes detected - recompiling the module! :dependency
+[INFO] Compiling 3 source files with javac [debug target 17] to target\test-classes
+[WARNING] system modules path not set in conjunction with -source 17
+[INFO]
+[INFO] --- surefire:3.2.5:test (default-test) @ orders-api ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.serverless.workshop.lambda.pojo.PojoHandlersTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.169 s -- in com.serverless.workshop.lambda.pojo.PojoHandlersTest
+[INFO] Running com.serverless.workshop.lambda.proxy.OrdersProxyHandlerTest
+[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.882 s -- in com.serverless.workshop.lambda.proxy.OrdersProxyHandlerTest
+[INFO] Running com.serverless.workshop.service.OrderServiceTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.020 s -- in com.serverless.workshop.service.OrderServiceTest
+[INFO]
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  16.338 s
+[INFO] Finished at: 2026-10-26T19:14:58-05:00
+[INFO] ------------------------------------------------------------------------
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> mvn package
+[INFO] Scanning for projects...
+[INFO]
+[INFO] -----------------< com.serverless.workshop:orders-api >-----------------
+[INFO] Building Orders Serverless API 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- resources:3.3.1:resources (default-resources) @ orders-api ---
+[INFO] skip non existing resourceDirectory C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\src\main\resources
+[INFO]
+[INFO] --- compiler:3.11.0:compile (default-compile) @ orders-api ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO]
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ orders-api ---
+[INFO] skip non existing resourceDirectory C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\src\test\resources
+[INFO]
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ orders-api ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO]
+[INFO] --- surefire:3.2.5:test (default-test) @ orders-api ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.serverless.workshop.lambda.pojo.PojoHandlersTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.151 s -- in com.serverless.workshop.lambda.pojo.PojoHandlersTest
+[INFO] Running com.serverless.workshop.lambda.proxy.OrdersProxyHandlerTest
+[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.429 s -- in com.serverless.workshop.lambda.proxy.OrdersProxyHandlerTest
+[INFO] Running com.serverless.workshop.service.OrderServiceTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.039 s -- in com.serverless.workshop.service.OrderServiceTest
+[INFO]
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO]
+[INFO] --- jar:3.3.0:jar (default-jar) @ orders-api ---
+[INFO] Building jar: C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\target\orders-api-1.0.0.jar
+[INFO]
+[INFO] --- shade:3.5.1:shade (default) @ orders-api ---
+[INFO] Including com.amazonaws:aws-lambda-java-core:jar:1.2.3 in the shaded jar.
+[INFO] Including com.amazonaws:aws-lambda-java-events:jar:3.11.4 in the shaded jar.
+[INFO] Including joda-time:joda-time:jar:2.10.8 in the shaded jar.
+[INFO] Including com.fasterxml.jackson.core:jackson-databind:jar:2.16.1 in the shaded jar.
+[INFO] Including com.fasterxml.jackson.core:jackson-annotations:jar:2.16.1 in the shaded jar.
+[INFO] Including com.fasterxml.jackson.core:jackson-core:jar:2.16.1 in the shaded jar.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] jackson-core-2.16.1.jar, jackson-databind-2.16.1.jar define 1 overlapping classes:
+[WARNING]   - META-INF.versions.9.module-info
+[WARNING] aws-lambda-java-core-1.2.3.jar, aws-lambda-java-events-3.11.4.jar, jackson-annotations-2.16.1.jar, jackson-core-2.16.1.jar, jackson-databind-2.16.1.jar, joda-time-2.10.8.jar, orders-api-1.0.0.jar define 1 overlapping resource:
+[WARNING]   - META-INF/MANIFEST.MF
+[WARNING] jackson-annotations-2.16.1.jar, jackson-core-2.16.1.jar, jackson-databind-2.16.1.jar define 2 overlapping resources:
+[WARNING]   - META-INF/LICENSE
+[WARNING]   - META-INF/NOTICE
+[WARNING] maven-shade-plugin has detected that some files are
+[WARNING] present in two or more JARs. When this happens, only one
+[WARNING] single version of the file is copied to the uber jar.
+[WARNING] Usually this is not harmful and you can skip these warnings,
+[WARNING] otherwise try to manually exclude artifacts based on
+[WARNING] mvn dependency:tree -Ddetail=true and the above output.
+[WARNING] See https://maven.apache.org/plugins/maven-shade-plugin/
+[INFO] Replacing original artifact with shaded artifact.
+[INFO] Replacing C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\target\orders-api-1.0.0.jar with C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\target\orders-api-1.0.0-shaded.jar
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  8.639 s
+[INFO] Finished at: 2026-10-26T19:15:35-05:00
+[INFO] ------------------------------------------------------------------------
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> dir target\*.jar
+
+
+    Directorio: C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api\target
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---l      26/10/2026  7:15 p. m.        3384988 orders-api-1.0.0.jar
+-a---l      26/10/2026  7:15 p. m.          20653 original-orders-api-1.0.0.jar
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> sam deploy --guided
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---l      26/10/2026  7:15 p. m.        3384988 orders-api-1.0.0.jar
+-a---l      26/10/2026  7:15 p. m.          20653 original-orders-api-1.0.0.jar
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> sam deploy --guided
+
+        SAM CLI now collects telemetry to better understand customer needs.
+
+        You can OPT OUT and disable telemetry collection by setting the
+        environment variable SAM_CLI_TELEMETRY=0 in your shell.
+        Thanks for your help!
+
+        Learn More: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-telemetry.html
+
+
+Configuring SAM deploy
+======================
+
+        Looking for config file [samconfig.toml] :  Not found
+
+        Setting default arguments for 'sam deploy'
+        =========================================
+        Stack Name [sam-app]: orders-api
+        AWS Region [us-east-1]:
+        Parameter LabRoleName [LabRole]:
+        #Shows you resources changes to be deployed and require a 'Y' to initiate deploy
+        Confirm changes before deploy [y/N]: y
+        #SAM needs permission to be able to create roles to connect to the resources in your template
+        Allow SAM CLI IAM role creation [Y/n]: n
+        Capabilities [['CAPABILITY_IAM']]:
+        #Preserves the state of previously provisioned resources when an operation fails
+        Disable rollback [y/N]:
+        OrdersProxyFunction has no authentication. Is this okay? [y/N]: y
+        OrdersProxyFunction has no authentication. Is this okay? [y/N]: y
+        OrdersProxyFunction has no authentication. Is this okay? [y/N]: y
+        OrdersProxyFunction has no authentication. Is this okay? [y/N]: y
+        Save arguments to configuration file [Y/n]:
+        SAM configuration file [samconfig.toml]:
+        SAM configuration environment [default]:
+
+        Looking for resources needed for deployment:
+        Creating the required resources...
+        Successfully created!
+
+        Managed S3 bucket: aws-sam-cli-managed-default-samclisourcebucket-kae9npqck0bg
+        Auto resolution of buckets can be turned off by setting resolve_s3=False
+        To use a specific S3 bucket, set --s3-bucket=<bucket_name>
+        Above settings can be stored in samconfig.toml
+
+        Saved arguments to config file
+        Running 'sam deploy' for future deployments will use the parameters saved above.
+        The above parameters can be changed by modifying samconfig.toml
+        Learn more about samconfig.toml syntax at
+        https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
+
+        Uploading to orders-api/9efa869da1fd22fae59ad01e541b0522  3384988 / 3384988  (100.00%)
+
+        File with same data already exists at orders-api/9efa869da1fd22fae59ad01e541b0522, skipping upload
+
+        File with same data already exists at orders-api/9efa869da1fd22fae59ad01e541b0522, skipping upload
+
+        Deploying with following values
+        ===============================
+        Stack name                   : orders-api
+        Region                       : us-east-1
+        Confirm changeset            : True
+        Disable rollback             : False
+        Deployment s3 bucket         : aws-sam-cli-managed-default-samclisourcebucket-kae9npqck0bg
+        Capabilities                 : ["CAPABILITY_IAM"]
+        Parameter overrides          : {"LabRoleName": "LabRole"}
+        Signing Profiles             : {}
+
+Initiating deployment
+=====================
+
+        Uploading to orders-api/72b233b320d0cefe665d02d34add3017.template  10176 / 10176  (100.00%)
+
+
+Waiting for changeset to be created..
+
+CloudFormation stack changeset
+---------------------------------------------------------------------------------------------------------------------------------
+Operation                        LogicalResourceId                ResourceType                     Replacement
+---------------------------------------------------------------------------------------------------------------------------------
++ Add                            CreateOrderPojoFunction          AWS::Lambda::Function            N/A
++ Add                            CreateOrderPojoInvokePermissio   AWS::Lambda::Permission          N/A
+                                 n
++ Add                            GetOrderPojoFunction             AWS::Lambda::Function            N/A
++ Add                            GetOrderPojoInvokePermission     AWS::Lambda::Permission          N/A
++ Add                            NonProxyOrdersApiDeployment26d   AWS::ApiGateway::Deployment      N/A
+                                 e06c1ef
++ Add                            NonProxyOrdersApiprodStage       AWS::ApiGateway::Stage           N/A
++ Add                            NonProxyOrdersApi                AWS::ApiGateway::RestApi         N/A
++ Add                            OrdersProxyFunctionCreateOrder   AWS::Lambda::Permission          N/A
+                                 PermissionProd
++ Add                            OrdersProxyFunctionDeleteOrder   AWS::Lambda::Permission          N/A
+                                 ByIdPermissionProd
++ Add                            OrdersProxyFunctionGetOrderByI   AWS::Lambda::Permission          N/A
+                                 dPermissionProd
++ Add                            OrdersProxyFunctionGetOrdersPe   AWS::Lambda::Permission          N/A
+                                 rmissionProd
++ Add                            OrdersProxyFunction              AWS::Lambda::Function            N/A
++ Add                            ServerlessRestApiDeploymentc60   AWS::ApiGateway::Deployment      N/A
+                                 ebe1590
++ Add                            ServerlessRestApiProdStage       AWS::ApiGateway::Stage           N/A
++ Add                            ServerlessRestApi                AWS::ApiGateway::RestApi         N/A
+---------------------------------------------------------------------------------------------------------------------------------
+
+
+Changeset created successfully. arn:aws:cloudformation:us-east-1:123456789012:changeSet/samcli-deploy1793060324/2c0b4714-e1a8-4b67-ab4
+6-2e94eb09b9cc
+
+
+Previewing CloudFormation changeset before deployment
+======================================================
+Deploy this changeset? [y/N]: y
+
+2026-10-26 19:19:05 - Waiting for stack create/update to complete
+
+CloudFormation events from stack operations (refresh every 5.0 seconds)
+---------------------------------------------------------------------------------------------------------------------------------
+ResourceStatus                   ResourceType                     LogicalResourceId                ResourceStatusReason
+---------------------------------------------------------------------------------------------------------------------------------
+CREATE_IN_PROGRESS               AWS::CloudFormation::Stack       orders-api                       User Initiated
+CREATE_IN_PROGRESS               AWS::Lambda::Function            OrdersProxyFunction              -
+CREATE_IN_PROGRESS               AWS::Lambda::Function            GetOrderPojoFunction             -
+CREATE_IN_PROGRESS               AWS::Lambda::Function            CreateOrderPojoFunction          -
+CREATE_IN_PROGRESS               AWS::Lambda::Function            GetOrderPojoFunction             Resource creation Initiated
+CREATE_IN_PROGRESS               AWS::Lambda::Function            OrdersProxyFunction              Resource creation Initiated
+CREATE_IN_PROGRESS               AWS::Lambda::Function            CreateOrderPojoFunction          Resource creation Initiated
+CREATE_COMPLETE                  AWS::Lambda::Function            OrdersProxyFunction              -
+CREATE_COMPLETE                  AWS::Lambda::Function            GetOrderPojoFunction             -
+CREATE_IN_PROGRESS               AWS::ApiGateway::RestApi         ServerlessRestApi                -
+CREATE_COMPLETE                  AWS::Lambda::Function            CreateOrderPojoFunction          -
+CREATE_IN_PROGRESS               AWS::ApiGateway::RestApi         NonProxyOrdersApi                -
+CREATE_IN_PROGRESS               AWS::ApiGateway::RestApi         ServerlessRestApi                Resource creation Initiated
+CREATE_IN_PROGRESS               AWS::ApiGateway::RestApi         NonProxyOrdersApi                Resource creation Initiated
+CREATE_COMPLETE                  AWS::ApiGateway::RestApi         ServerlessRestApi                -
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionCreateOrder   -
+                                                                  PermissionProd
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionGetOrdersPe   -
+                                                                  rmissionProd
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionGetOrderByI   -
+                                                                  dPermissionProd
+CREATE_IN_PROGRESS               AWS::ApiGateway::Deployment      ServerlessRestApiDeploymentc60   -
+                                                                  ebe1590
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionDeleteOrder   -
+                                                                  ByIdPermissionProd
+CREATE_COMPLETE                  AWS::ApiGateway::RestApi         NonProxyOrdersApi                -
+CREATE_IN_PROGRESS               AWS::ApiGateway::Deployment      NonProxyOrdersApiDeployment26d   -
+                                                                  e06c1ef
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          GetOrderPojoInvokePermission     -
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          CreateOrderPojoInvokePermissio   -
+                                                                  n
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionGetOrderByI   Resource creation Initiated
+                                                                  dPermissionProd
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionCreateOrder   Resource creation Initiated
+                                                                  PermissionProd
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionGetOrdersPe   Resource creation Initiated
+                                                                  rmissionProd
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          OrdersProxyFunctionDeleteOrder   Resource creation Initiated
+                                                                  ByIdPermissionProd
+CREATE_IN_PROGRESS               AWS::ApiGateway::Deployment      ServerlessRestApiDeploymentc60   Resource creation Initiated
+                                                                  ebe1590
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          GetOrderPojoInvokePermission     Resource creation Initiated
+CREATE_IN_PROGRESS               AWS::Lambda::Permission          CreateOrderPojoInvokePermissio   Resource creation Initiated
+                                                                  n
+CREATE_COMPLETE                  AWS::Lambda::Permission          OrdersProxyFunctionGetOrderByI   -
+                                                                  dPermissionProd
+CREATE_COMPLETE                  AWS::Lambda::Permission          OrdersProxyFunctionCreateOrder   -
+                                                                  PermissionProd
+CREATE_IN_PROGRESS               AWS::ApiGateway::Deployment      NonProxyOrdersApiDeployment26d   Resource creation Initiated
+                                                                  e06c1ef
+CREATE_COMPLETE                  AWS::Lambda::Permission          OrdersProxyFunctionDeleteOrder   -
+                                                                  ByIdPermissionProd
+CREATE_COMPLETE                  AWS::Lambda::Permission          OrdersProxyFunctionGetOrdersPe   -
+                                                                  rmissionProd
+CREATE_COMPLETE                  AWS::Lambda::Permission          GetOrderPojoInvokePermission     -
+CREATE_COMPLETE                  AWS::Lambda::Permission          CreateOrderPojoInvokePermissio   -
+                                                                  n
+CREATE_COMPLETE                  AWS::ApiGateway::Deployment      ServerlessRestApiDeploymentc60   -
+                                                                  ebe1590
+CREATE_COMPLETE                  AWS::ApiGateway::Deployment      NonProxyOrdersApiDeployment26d   -
+                                                                  e06c1ef
+CREATE_IN_PROGRESS               AWS::ApiGateway::Stage           ServerlessRestApiProdStage       -
+CREATE_IN_PROGRESS               AWS::ApiGateway::Stage           NonProxyOrdersApiprodStage       -
+CREATE_IN_PROGRESS               AWS::ApiGateway::Stage           ServerlessRestApiProdStage       Resource creation Initiated
+CREATE_IN_PROGRESS               AWS::ApiGateway::Stage           NonProxyOrdersApiprodStage       Resource creation Initiated
+CREATE_COMPLETE                  AWS::ApiGateway::Stage           ServerlessRestApiProdStage       -
+CREATE_COMPLETE                  AWS::ApiGateway::Stage           NonProxyOrdersApiprodStage       -
+CREATE_COMPLETE                  AWS::CloudFormation::Stack       orders-api                       -
+---------------------------------------------------------------------------------------------------------------------------------
+
+CloudFormation outputs from deployed stack
+-----------------------------------------------------------------------------------------------------------------------------------
+Outputs
+-----------------------------------------------------------------------------------------------------------------------------------
+Key                 GetOrderPojoFunctionName
+Description         Lambda to invoke directly with aws lambda invoke (get order)
+Value               orders-get-order-pojo
+
+Key                 ProxyFunctionName
+Description         Lambda used by Architecture B
+Value               orders-proxy-handler
+
+Key                 NonProxyApiEndpoint
+Description         Architecture A - API Gateway non-proxy (mapping templates) endpoint
+Value               https://0723r554mf.execute-api.us-east-1.amazonaws.com/prod/orders
+
+Key                 ProxyApiEndpoint
+Description         Architecture B - Lambda proxy integration endpoint
+Value               https://7a9dw9rl69.execute-api.us-east-1.amazonaws.com/Prod/orders
+
+Key                 CreateOrderPojoFunctionName
+Description         Lambda to invoke directly with aws lambda invoke (create order)
+Value               orders-create-order-pojo
+-----------------------------------------------------------------------------------------------------------------------------------
+
+
+Successfully created/updated stack - orders-api in us-east-1
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> aws lambda invoke --function-name orders-create-order-pojo --cli-binary-format raw-in-base64-out --payload fileb://events/pojo-create-order-input1.json out1.json; type out1.json
+{
+    "StatusCode": 200,
+    "ExecutedVersion": "$LATEST"
+}
+{"id":"ORD-384ABA","customerId":"CUST-42","product":"MacBook Air","quantity":1}
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> aws lambda invoke --function-name orders-create-order-pojo --cli-binary-format raw-in-base64-out --payload fileb://events/pojo-create-order-input2.json out2.json; type out2.json
+{
+    "StatusCode": 200,
+    "ExecutedVersion": "$LATEST"
+}
+{"id":"ORD-C0904A","customerId":"CUST-99","product":"Dell UltraSharp Monitor","quantity":2}
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Set-Content exp-extra.json '{"customerId":"CUST-1","product":"Mouse","quantity":1,"extra":true}' -Encoding ascii
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Set-Content exp-string.json '{"customerId":"CUST-1","product":"Mouse","quantity":"2"}' -Encoding ascii
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Set-Content exp-missing.json '{"customerId":"CUST-1","product":"Mouse"}' -Encoding ascii
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Set-Content exp-invalid.json '{"customerId":"","product":"Mouse","quantity":1}' -Encoding ascii
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> foreach ($f in "exp-extra","exp-string","exp-missing","exp-invalid") { "===== $f"; aws lambda invoke --function-name orders-create-order-pojo --cli-binary-format raw-in-base64-out --payload fileb://$f.json "$f-out.json" | Out-Null; type "$f-out.json"; "" }
+===== exp-extra
+{"id":"ORD-41B09B","customerId":"CUST-1","product":"Mouse","quantity":1}
+
+===== exp-string
+{"id":"ORD-449E09","customerId":"CUST-1","product":"Mouse","quantity":2}
+
+===== exp-missing
+{"errorMessage":"quantity must be greater than 0","errorType":"com.serverless.workshop.domain.InvalidOrderException","stackTrace":["com.serverless.workshop.service.OrderService.createOrder(OrderService.java:42)","com.serverless.workshop.lambda.pojo.CreateOrderPojoHandler.handleRequest(CreateOrderPojoHandler.java:34)","java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)","java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(Unknown Source)","java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)","java.base/java.lang.reflect.Method.invoke(Unknown Source)"]}
+
+===== exp-invalid
+{"errorMessage":"customerId is required","errorType":"com.serverless.workshop.domain.InvalidOrderException","stackTrace":["com.serverless.workshop.service.OrderService.createOrder(OrderService.java:36)","com.serverless.workshop.lambda.pojo.CreateOrderPojoHandler.handleRequest(CreateOrderPojoHandler.java:34)","java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)","java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(Unknown Source)","java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)","java.base/java.lang.reflect.Method.invoke(Unknown Source)"]}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Set-Content exp-get.json '{"id":"ORD-384ABA"}' -Encoding ascii
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> aws lambda invoke --function-name orders-get-order-pojo --cli-binary-format raw-in-base64-out --payload fileb://exp-get.json get-out.json | Out-Null; type get-out.json
+{"errorMessage":"Order ORD-384ABA does not exist","errorType":"com.serverless.workshop.domain.OrderNotFoundException","stackTrace":["com.serverless.workshop.service.OrderService.lambda$getOrder$0(OrderService.java:69)","java.base/java.util.Optional.orElseThrow(Unknown Source)","com.serverless.workshop.service.OrderService.getOrder(OrderService.java:69)","com.serverless.workshop.lambda.pojo.GetOrderPojoHandler.handleRequest(GetOrderPojoHandler.java:34)","java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)","java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(Unknown Source)","java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(Unknown Source)","java.base/java.lang.reflect.Method.invoke(Unknown Source)"]}
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Set-Content exp-get2.json '{"id":"ORD-001"}' -Encoding ascii
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> aws lambda invoke --function-name orders-get-order-pojo --cli-binary-format raw-in-base64-out --payload fileb://exp-get2.json get2-out.json | Out-Null; type get2-out.json
+{"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1}
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Set-Content bad.json '{"customerId":"","product":"Mouse","quantity":0}' -Encoding ascii
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B1 POST (esperado 201)";              curl.exe -s -i -X POST $B -H "Content-Type: application/json" --data-binary "@events/pojo-create-order-input1.json"; ""
+===== B1 POST (esperado 201)
+curl: (2) no URL specified
+curl: try 'curl --help' for more information
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B2 GET ORD-001 (esperado 200)";       curl.exe -s -i "$B/ORD-001"; ""
+===== B2 GET ORD-001 (esperado 200)
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B3 GET CUST-42 (esperado 200)";       curl.exe -s -i "$B`?customerId=CUST-42"; ""
+===== B3 GET CUST-42 (esperado 200)
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B4 GET CUST-100 (esperado 200 [])";   curl.exe -s -i "$B`?customerId=CUST-100"; ""
+===== B4 GET CUST-100 (esperado 200 [])
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B5 GET ORD-999 (esperado 404)";       curl.exe -s -i "$B/ORD-999"; ""
+===== B5 GET ORD-999 (esperado 404)
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B6 POST invalido (esperado 400)";     curl.exe -s -i -X POST $B -H "Content-Type: application/json" --data-binary "@bad.json"; ""
+===== B6 POST invalido (esperado 400)
+curl: (2) no URL specified
+curl: try 'curl --help' for more information
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B7 DELETE ORD-042 (esperado 204)";    curl.exe -s -i -X DELETE "$B/ORD-042"; ""
+===== B7 DELETE ORD-042 (esperado 204)
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B8 DELETE ORD-999 (esperado 404)";    curl.exe -s -i -X DELETE "$B/ORD-999"; ""
+===== B8 DELETE ORD-999 (esperado 404)
+
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B9 PUT /orders (esperado 405)";       curl.exe -s -i -X PUT $B; ""
+===== B9 PUT /orders (esperado 405)
+curl: (2) no URL specified
+curl: try 'curl --help' for more information
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> $A = "https://0723r554mf.execute-api.us-east-1.amazonaws.com/prod/orders"
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> $B = "https://7a9dw9rl69.execute-api.us-east-1.amazonaws.com/Prod/orders"
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> $B
+https://7a9dw9rl69.execute-api.us-east-1.amazonaws.com/Prod/orders
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B1 POST (esperado 201)";              curl.exe -s -i -X POST $B -H "Content-Type: application/json" --data-binary "@events/pojo-create-order-input1.json"; ""
+===== B1 POST (esperado 201)
+HTTP/1.1 201 Created
+Content-Type: application/json
+Content-Length: 79
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:05 GMT
+X-Amzn-Trace-Id: Root=1-6adfef5f-574be2891c32fa9303bd19cb;Parent=05ffec6ee74c5703;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: 4de94dc2-9f52-41dc-b3de-1a6ea48ea42e
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXEHPdIAMEZ5Q=
+Location: /orders/ORD-18548F
+X-Cache: Miss from cloudfront
+Via: 1.1 b95bec14ad9d13967ac1da52182a5eb8.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: Xp91VRTAORUyQMbrrCrNGlZYFJN_sbmgsQzepdds2xuYrmZj0JYk_g==
+
+{"id":"ORD-18548F","customerId":"CUST-42","product":"MacBook Air","quantity":1}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B2 GET ORD-001 (esperado 200)";       curl.exe -s -i "$B/ORD-001"; ""
+===== B2 GET ORD-001 (esperado 200)
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 76
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:06 GMT
+X-Amzn-Trace-Id: Root=1-6adfef62-6a937619575e4cd92d787d82;Parent=7c75b0578a00aaa6;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: b37c443e-d1ce-4779-9bea-aedd2e4a82a9
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXaEZ1oAMEpnA=
+X-Cache: Miss from cloudfront
+Via: 1.1 c46d96d54871ac830c5048f6f1144e6a.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: c5Cvq0h9saRn6IMAcrWSiXigPnmFCSGbV-ADCXUpz6Nabs_n-jA9Vg==
+
+{"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B3 GET CUST-42 (esperado 200)";       curl.exe -s -i "$B`?customerId=CUST-42"; ""
+===== B3 GET CUST-42 (esperado 200)
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 237
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:06 GMT
+X-Amzn-Trace-Id: Root=1-6adfef62-6db2da4201334adb6682bab7;Parent=2c7a33ab581c0ee5;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: 4f5b731b-b944-4708-81c7-107c341c2494
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXcF-goAMEXrQ=
+X-Cache: Miss from cloudfront
+Via: 1.1 37294e3a7b5e85cba3a9df52b0d05a2a.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: gacnZTckREL3J8Z4bw7H2WkGRSNgfGwNkIv6ZrdcxFk_nEzX0lwofQ==
+
+[{"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1},{"id":"ORD-100","customerId":"CUST-42","product":"USB-C
+Adapter","quantity":3},{"id":"ORD-18548F","customerId":"CUST-42","product":"MacBook Air","quantity":1}]
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B4 GET CUST-100 (esperado 200 [])";   curl.exe -s -i "$B`?customerId=CUST-100"; ""
+===== B4 GET CUST-100 (esperado 200 [])
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 2
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:06 GMT
+X-Amzn-Trace-Id: Root=1-6adfef62-32e7f9f348b5e43d4b17747b;Parent=54eef906f0a22d95;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: 1088722c-2b8d-43ec-82c9-02019db201e7
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXeFIWoAMEt9w=
+X-Cache: Miss from cloudfront
+Via: 1.1 3e7433415e082262f8240e26ab8aab5e.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: 1-RBhioYUUW-c90V_Xt7OsNcaNX5JBGuC_XJRCT_msm3NCpHFyw2Dg==
+
+[]
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B5 GET ORD-999 (esperado 404)";       curl.exe -s -i "$B/ORD-999"; ""
+===== B5 GET ORD-999 (esperado 404)
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+Content-Length: 68
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:06 GMT
+X-Amzn-Trace-Id: Root=1-6adfef62-7eaf95706f2fc0a553dbed1e;Parent=118c059d2789a238;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: 3056459f-8ed8-49e2-86c6-0f8eb038a2f2
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXgHiYoAMEOZA=
+X-Cache: Error from cloudfront
+Via: 1.1 03b577034b5b6141d1bc7246694cb8a8.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: 3DUUAFO5u_-aWfVqXLdnT0sGVTrz66KJbT8sykiQDlL4qBeLYNfIGA==
+
+{"error":"ORDER_NOT_FOUND","message":"Order ORD-999 does not exist"}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B6 POST invalido (esperado 400)";     curl.exe -s -i -X POST $B -H "Content-Type: application/json" --data-binary "@bad.json"; ""
+===== B6 POST invalido (esperado 400)
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 60
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:07 GMT
+X-Amzn-Trace-Id: Root=1-6adfef63-2f03a9ad3b11409a3f3a5aef;Parent=4c48fc176248e2fb;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: 0d4a1bd9-6cc5-4dba-9d75-0c610f1ba812
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXjHZyIAMESDQ=
+X-Cache: Error from cloudfront
+Via: 1.1 3d229570d100b8201dc1c79aa8037dce.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: Z9-oCBP_zzfs0anjGAfR7NZzMKxFahUg8Azsht0eFu6Y4Z9aKTmHlQ==
+
+{"error":"INVALID_INPUT","message":"customerId is required"}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B7 DELETE ORD-042 (esperado 204)";    curl.exe -s -i -X DELETE "$B/ORD-042"; ""
+===== B7 DELETE ORD-042 (esperado 204)
+HTTP/1.1 204 No Content
+Content-Type: application/json
+Content-Length: 0
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:07 GMT
+X-Amzn-Trace-Id: Root=1-6adfef63-3e51694434b2af4952ac86bd;Parent=1e2c0787fd2c3d1c;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: 4694c151-e414-41cc-8c98-45bb99789a4a
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXlHoDIAMEZaw=
+X-Cache: Miss from cloudfront
+Via: 1.1 c46d96d54871ac830c5048f6f1144e6a.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: pnwl25-32U_AKaxVqDYnuYVO3MEbHnnUEZWTEaVQPCYJcgjE2pSqGg==
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B8 DELETE ORD-999 (esperado 404)";    curl.exe -s -i -X DELETE "$B/ORD-999"; ""
+===== B8 DELETE ORD-999 (esperado 404)
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+Content-Length: 68
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:25:07 GMT
+X-Amzn-Trace-Id: Root=1-6adfef63-5d6f5a9c01e36b501d6f09a0;Parent=3003bf134c7bbdf3;Sampled=0;Lineage=1:aa61f648:0
+x-amzn-RequestId: 8d3dfda3-b115-41e8-8362-a88c17ebdc31
+Access-Control-Allow-Origin: *
+x-amz-apigw-id: F4JXnGhUIAMElpQ=
+X-Cache: Error from cloudfront
+Via: 1.1 d7fb88b3b0b212450e4dbb0aacfc73ee.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: Ba_obAfbXzW9AQIJixFM13EcOqvq7YV8n3wY8Csh_-IFPUppMFJiQA==
+
+{"error":"ORDER_NOT_FOUND","message":"Order ORD-999 does not exist"}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== B9 PUT /orders (esperado 405)";       curl.exe -s -i -X PUT $B; ""
+===== B9 PUT /orders (esperado 405)
+HTTP/1.1 403 Forbidden
+Content-Type: application/json
+Content-Length: 42
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:26:55 GMT
+x-amz-apigw-id: F4JodHhNIAMEnYg=
+x-amzn-RequestId: 227c7bb0-ada4-42c5-beb8-35ffc40f71c2
+x-amzn-ErrorType: MissingAuthenticationTokenException
+X-Cache: Error from cloudfront
+Via: 1.1 f8a6366492980e8eaf5cd28b9679e5c4.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P3
+X-Amz-Cf-Id: d6Yfv65YyiCKRepSsEy8J5L78HLoUAo2I1o9rO0Ml4cUK9YVXgHBpw==
+
+{"message":"Missing Authentication Token"}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== A1 POST (esperado 201)";              curl.exe -s -i -X POST $A -H "Content-Type: application/json" --data-binary "@events/pojo-create-order-input1.json"; ""
+===== A1 POST (esperado 201)
+HTTP/1.1 201 Created
+Content-Type: application/json
+Content-Length: 79
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:27:25 GMT
+X-Amzn-Trace-Id: Root=1-6adfefed-1edd528f0f0e2ea054f80fc7;Parent=1dd36a0290e13524;Sampled=0;Lineage=1:fde12231:0
+x-amzn-RequestId: 3fafec7d-6395-4915-bbd1-1373d0a618e3
+x-amz-apigw-id: F4JtHG93IAMEPhw=
+X-Cache: Miss from cloudfront
+Via: 1.1 737d923d6f9eed7679ab2bbfa62466ce.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P2
+X-Amz-Cf-Id: Jj5cO40vgWJm_81y20K1ixg5q3xo2gHo0cW_eM-M8trmg--8OQpzYA==
+
+{"id":"ORD-63518C","customerId":"CUST-42","product":"MacBook Air","quantity":1}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== A2 GET ORD-001 (esperado 200)";       curl.exe -s -i "$A/ORD-001"; ""
+===== A2 GET ORD-001 (esperado 200)
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 76
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:27:25 GMT
+X-Amzn-Trace-Id: Root=1-6adfefed-462dfb9d237a06126ac52e8b;Parent=3c9d929623f830fc;Sampled=0;Lineage=1:1c8c8b31:0
+x-amzn-RequestId: 72bcc225-4010-4d46-a339-0b9911195ad2
+x-amz-apigw-id: F4JtKGU6oAMEckQ=
+X-Cache: Miss from cloudfront
+Via: 1.1 ac00588cf3d3962c3e231862028e6a48.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P2
+X-Amz-Cf-Id: QvjmWPMNmOz-awwqm9_ywbuooRfj-2ILpmyWKejZfvsoypta4v4ycQ==
+
+{"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1}
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== A3 GET CUST-42 (esperado 200)";       curl.exe -s -i "$A`?customerId=CUST-42"; ""
+===== A3 GET CUST-42 (esperado 200)
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 157
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:27:25 GMT
+X-Amzn-Trace-Id: Root=1-6adfefed-7ef25523627a84bd5de1d1c3;Parent=076835b2c05e087e;Sampled=0;Lineage=1:1c8c8b31:0
+x-amzn-RequestId: f62268d2-b967-4083-8a6f-ad9efc47bd69
+x-amz-apigw-id: F4JtMFmUIAMEWiQ=
+X-Cache: Miss from cloudfront
+Via: 1.1 88d858df769d8d0279ef3aa645411062.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P2
+X-Amz-Cf-Id: 6NRgwN_OPeOpbhZqeO7-L0zt_jbPZDUuyWd6NCVlY7lKZXGUSrF-vQ==
+
+[{"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1},{"id":"ORD-100","customerId":"CUST-42","product":"USB-C Adapter","quantity":3}]
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== A4 GET CUST-100 (esperado 200 [])";   curl.exe -s -i "$A`?customerId=CUST-100"; ""
+===== A4 GET CUST-100 (esperado 200 [])
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 2
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:27:25 GMT
+X-Amzn-Trace-Id: Root=1-6adfefed-4482ac501de6abd829472dc0;Parent=3c85fdc1c3afd147;Sampled=0;Lineage=1:1c8c8b31:0
+x-amzn-RequestId: 9d4253ab-ee21-40be-acdd-afd0478fca9d
+x-amz-apigw-id: F4JtQEVDoAMEWEA=
+X-Cache: Miss from cloudfront
+Via: 1.1 376d6ec28c80e5e212a68f71d0b893ba.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P2
+X-Amz-Cf-Id: uc9WjXPYrhhqAUQvhw8_sNQzvuZehy0UMwNpPBr8GKGm3lmNDZIqpQ==
+
+[]
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== A5 GET ORD-999 (esperado 404)";       curl.exe -s -i "$A/ORD-999"; ""
+===== A5 GET ORD-999 (esperado 404)
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+Content-Length: 74
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:27:26 GMT
+X-Amzn-Trace-Id: Root=1-6adfefee-3e252a504059de0d40883d50;Parent=0286fc01e8b2a9ea;Sampled=0;Lineage=1:1c8c8b31:0
+x-amzn-RequestId: 1486174e-bf7a-486b-861e-61a96221a01f
+x-amz-apigw-id: F4JtUHr-IAMEFiA=
+X-Cache: Error from cloudfront
+Via: 1.1 b10276ea5bfc27d7ba525523598dc766.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P2
+X-Amz-Cf-Id: jMhFP8Jb1GJeLSIM2ATs-A7Wdjnd-KH0LYfxgbDJ8cUSH7NWIahlbw==
+
+{ "error": "ORDER_NOT_FOUND", "message": "Order ORD-999 does not exist" }
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== A6 POST invalido (esperado 400)";     curl.exe -s -i -X POST $A -H "Content-Type: application/json" --data-binary "@bad.json"; ""
+===== A6 POST invalido (esperado 400)
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 66
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:27:26 GMT
+X-Amzn-Trace-Id: Root=1-6adfefee-069550c96a537b19706b102b;Parent=3845da911a5232bc;Sampled=0;Lineage=1:fde12231:0
+x-amzn-RequestId: 1b21225e-b52b-4b42-bea3-a2c481b8a8d5
+x-amz-apigw-id: F4JtYGwIoAMEcxg=
+X-Cache: Error from cloudfront
+Via: 1.1 376d6ec28c80e5e212a68f71d0b893ba.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P2
+X-Amz-Cf-Id: N0ZufLHVtUoGjM0JDdagf4f-vFxL6NWWhWZbYYFIs7m4p2hqqokvew==
+
+{ "error": "INVALID_INPUT", "message": "customerId is required" }
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> "===== A7 GET sin customerId (esperado 400)"; curl.exe -s -i $A; ""
+===== A7 GET sin customerId (esperado 400)
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 84
+Connection: keep-alive
+Date: Tue, 27 Oct 2026 00:27:28 GMT
+X-Amzn-Trace-Id: Root=1-6adfeff0-6ea4fa23042f48ef074529f2;Parent=285f0b9288b3f95d;Sampled=0;Lineage=1:1c8c8b31:0
+x-amzn-RequestId: e56a7434-329d-4814-b0e7-081a51864b61
+x-amz-apigw-id: F4JttEadIAMEn1w=
+X-Cache: Error from cloudfront
+Via: 1.1 620986bcf98802fc7e8f06b156887a38.cloudfront.net (CloudFront)
+X-Amz-Cf-Pop: BOG51-P2
+X-Amz-Cf-Id: _SZS7PowDJz4QgqPkxydvEpU2Dzwh_QYfQzVa6aE2utspaApkz9W8g==
+
+{ "error": "INVALID_INPUT", "message": "Either id or customerId must be provided" }
+
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> aws logs tail /aws/lambda/orders-proxy-handler --since 30m | Out-File evidencias\proxy-logs.txt -Encoding utf8
+PS C:\Users\santi\OneDrive\Documentos\orders-deploy\orders-api> Stop-Transcript
+**********************
+Fin de la transcripción de Windows PowerShell
+Hora de finalización: 20261026192837
+**********************

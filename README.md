@@ -1,457 +1,428 @@
 # Designing a Serverless REST API with AWS Lambda and Amazon API Gateway
 
-This repository contains the complete implementation, architectural analysis, and engineering evaluation for the **Order Management Serverless REST API** built with Java 17, AWS Lambda, Amazon API Gateway, and Maven.
+Implementation, architectural analysis and engineering evaluation of a small **Order Management API** built with Java 17, Maven, JUnit 5, AWS Lambda and Amazon API Gateway.
+
+Two integration styles are deployed side by side and compared:
+
+* **Architecture A — API Gateway non-proxy (custom) integration:** API Gateway extracts parameters with mapping templates and chooses HTTP status codes.
+* **Architecture B — Lambda proxy integration:** API Gateway forwards the whole HTTP request and a thin Java HTTP adapter decides the HTTP response.
+
+All results shown in this README are **real outputs** captured on **2026-10-26** in an **AWS Academy Learner Lab** account (`us-east-1`). The raw console transcript and the Lambda logs are stored in [`evidence/`](evidence/).
 
 ---
 
 ## Table of Contents
-1. [Project Overview & Learning Objectives](#1-project-overview--learning-objectives)
-2. [API Design & Contract Specification](#2-api-design--contract-specification)
-   - [API Design Questions & Justifications](#api-design-questions--justifications)
-   - [HTTP Endpoints & Contract Table](#http-endpoints--contract-table)
-   - [Standard Error Format](#standard-error-format)
-3. [Architecture Overview & System Diagrams](#3-architecture-overview--system-diagrams)
-   - [Final Architecture Diagram](#final-architecture-diagram)
-   - [AWS Dependencies vs Pure Java Separation](#aws-dependencies-vs-pure-java-separation)
-4. [Part I — Plain Java Implementation & Local Testing](#4-part-i--plain-java-implementation--local-testing)
-   - [Domain & Service Design](#domain--service-design)
-   - [Checkpoint 1: Local Testing Without AWS](#checkpoint-1-local-testing-without-aws)
-5. [Part II — AWS Lambda Direct Invocation & JSON Serialization](#5-part-ii--aws-lambda-direct-invocation--json-serialization)
-   - [Runtime Deserialization Investigation](#runtime-deserialization-investigation)
-   - [Checkpoint 2: Serialization Flow Diagram](#checkpoint-2-serialization-flow-diagram)
-6. [Part III & IV — Architecture A: API Gateway Non-Proxy Integration](#6-part-iii--iv--architecture-a-api-gateway-non-proxy-integration)
-   - [VTL Mapping Templates](#vtl-mapping-templates)
-   - [Checkpoint 3: Responsibility Distribution Analysis](#checkpoint-3-responsibility-distribution-analysis)
-7. [Part V — Architecture B: Lambda Proxy Integration](#7-part-v--architecture-b-lambda-proxy-integration)
-   - [Proxy Event Structure](#proxy-event-structure)
-   - [HTTP Adapter Implementation](#http-adapter-implementation)
-   - [HTTP Semantics & Status Codes](#http-semantics--status-codes)
-8. [Comprehensive Architecture Comparison (A vs B)](#8-comprehensive-architecture-comparison-a-vs-b)
-9. [Criticize Your AI Assistant (3 Critical Decisions)](#9-criticize-your-ai-assistant-3-critical-decisions)
-10. [Final Challenge — DELETE /orders/{id}](#10-final-challenge--delete-ordersid)
-    - [Pre-Implementation Prediction](#pre-implementation-prediction)
-    - [Evaluation & Comparison](#evaluation--comparison)
-11. [Project Structure](#11-project-structure)
-12. [Step-by-Step Build, Test, and Demonstration Guide](#12-step-by-step-build-test-and-demonstration-guide)
+1. [API Design & Contract](#1-api-design--contract)
+2. [Architecture Diagrams](#2-architecture-diagrams)
+3. [Part I — Plain Java Application & Local Tests](#3-part-i--plain-java-application--local-tests)
+4. [Part II — Direct Lambda Invocation & JSON Serialization](#4-part-ii--direct-lambda-invocation--json-serialization)
+5. [Part III & IV — Architecture A: Non-Proxy Integration](#5-part-iii--iv--architecture-a-non-proxy-integration)
+6. [Part V — Architecture B: Lambda Proxy Integration](#6-part-v--architecture-b-lambda-proxy-integration)
+7. [In-Memory Storage Is Ephemeral](#7-in-memory-storage-is-ephemeral)
+8. [Unexpected Internal Errors (500)](#8-unexpected-internal-errors-500)
+9. [Comparison of the Two Architectures](#9-comparison-of-the-two-architectures)
+10. [Criticizing the AI Assistant](#10-criticizing-the-ai-assistant)
+11. [Final Challenge — DELETE /orders/{id}](#11-final-challenge--delete-ordersid)
+12. [Build, Test and Deploy (AWS Academy)](#12-build-test-and-deploy-aws-academy)
+13. [Project Structure](#13-project-structure)
+14. [Demonstration Video](#14-demonstration-video)
 
 ---
 
-## 1. Project Overview & Learning Objectives
+## 1. API Design & Contract
 
-The primary goal of this project is to explore how architectural responsibilities are partitioned between **Amazon API Gateway**, **AWS Lambda**, and a **clean Java application core**.
+### Design questions
 
-### Core Competencies Demonstrated
-* **Decoupled Java Core**: Writing business logic that has zero compile-time dependencies on AWS, HTTP, or web containers.
-* **Dual Integration Patterns**: Implementing and contrasting **Non-Proxy Integration (Architecture A)** with **Lambda Proxy Integration (Architecture B)**.
-* **Strict HTTP Semantics**: Implementing proper RESTful status codes (`200 OK`, `201 Created` with `Location` header, `204 No Content`, `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`).
-* **Engineering Evaluation**: Critically analyzing AI architectural suggestions instead of passively accepting defaults.
+**What are the resources in the API?**
+The only resource is the **order**. `/orders` is the collection and `/orders/{id}` is one specific order.
 
----
+**Why `/orders/{id}` to retrieve a particular order?**
+A path segment identifies a resource. An order is an element of the `/orders` collection and its identifier uniquely names it, so `GET /orders/ORD-001` addresses exactly one order.
 
-## 2. API Design & Contract Specification
+**Why is `customerId` a query parameter?**
+Searching by customer does not identify one resource: it **filters the collection**. The target is still `/orders`, and `?customerId=CUST-42` narrows it. A customer is also not modeled as a resource of this API.
 
-### API Design Questions & Justifications
+**What should `POST /orders` return on success?**
+`201 Created`, the created order (including its generated `id`) in the body and a `Location: /orders/{id}` header pointing to the new resource.
 
-#### 1. What are the resources in your API?
-The primary resource is **`orders`** (representing order business entities).
-* `/orders`: The collection resource representing all orders.
-* `/orders/{id}`: The individual order resource representing a single specific order by its unique identifier.
+**What should the API return when an order does not exist?**
+`404 Not Found` with the standard error body (`ORDER_NOT_FOUND`).
 
-#### 2. Why did you choose `/orders/{id}` to retrieve a particular order?
-According to REST architectural constraints, path segments identify hierarchical resource containment. An individual order is a member of the `/orders` collection. Using a path parameter `{id}` uniquely identifies that individual resource as a distinct URI endpoint (`GET /orders/ORD-001`), adhering to standard REST addressing conventions.
+**What should an error response contain?**
+A stable, machine-readable `error` code and a human-readable `message`. It must **not** contain stack traces or Java class names.
 
-#### 3. Why is `customerId` represented as a query parameter in the search operation?
-In RESTful design:
-* Path parameters identify a **specific resource**.
-* Query parameters provide **filtering, searching, sorting, or pagination** criteria on a collection.
-Because searching orders by customer does not identify a single unique order resource, but rather filters the `/orders` collection to find all matching items, `GET /orders?customerId=CUST-42` correctly preserves `/orders` as the target collection being queried.
+### Contract
 
-#### 4. What should `POST /orders` return when an order is successfully created?
-* **HTTP Status Code**: `201 Created`
-* **Response Header**: `Location: /orders/{id}` (pointing to the URI of the newly created resource).
-* **Response Body**: The complete JSON representation of the created order, including its newly generated unique identifier (`id`).
+| Operation | Method & URL | Input | Success | Errors |
+| :--- | :--- | :--- | :--- | :--- |
+| Create order | `POST /orders` | Body `{"customerId","product","quantity"}` | `201` + `Order` + `Location` | `400` invalid input / malformed JSON |
+| Get order | `GET /orders/{id}` | Path `id` | `200` + `Order` | `404` not found |
+| Find by customer | `GET /orders?customerId=` | Query `customerId` | `200` + `Order[]` (may be `[]`) | `400` missing `customerId` |
+| Delete order | `DELETE /orders/{id}` | Path `id` | `204`, empty body | `404` not found |
+| Any operation | — | — | — | `500` unexpected error |
 
-#### 5. What should the API return when an order does not exist?
-* **HTTP Status Code**: `404 Not Found`
-* **Response Body**: A structured error payload:
-  ```json
-  {
-    "error": "ORDER_NOT_FOUND",
-    "message": "Order ORD-999 does not exist"
-  }
-  ```
+### Error format
 
-#### 6. What information should an error response contain?
-A predictable and machine-readable error payload must include:
-1. `error`: A concise, stable, machine-readable error code (e.g., `ORDER_NOT_FOUND`, `INVALID_INPUT`, `BAD_REQUEST`).
-2. `message`: A human-readable diagnostic explanation describing what went wrong.
-
----
-
-### HTTP Endpoints & Contract Table
-
-| Operation | Method | URI | Path Params | Query Params | Request Body | Success Status | Success Body / Headers | Error Status Codes |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Create Order** | `POST` | `/orders` | None | None | `{"customerId":"CUST-42", "product":"MacBook Air", "quantity":1}` | `201 Created` | `Order` JSON<br>Header: `Location: /orders/{id}` | `400 Bad Request`<br>`500 Internal Error` |
-| **Retrieve Order** | `GET` | `/orders/{id}` | `id` (e.g. `ORD-001`) | None | None | `200 OK` | `Order` JSON | `400 Bad Request`<br>`404 Not Found` |
-| **Find Orders by Customer** | `GET` | `/orders` | None | `customerId` (e.g. `CUST-42`) | None | `200 OK` | Array of `Order` JSON `[...]` | `400 Bad Request`<br>`500 Internal Error` |
-| **Delete Order** | `DELETE` | `/orders/{id}` | `id` (e.g. `ORD-001`) | None | None | `204 No Content` | *Empty Body* | `400 Bad Request`<br>`404 Not Found` |
-
-### Standard Error Format
 ```json
-{
-  "error": "ORDER_NOT_FOUND",
-  "message": "Order ORD-999 does not exist"
-}
+{ "error": "ORDER_NOT_FOUND", "message": "Order ORD-999 does not exist" }
 ```
 
+| `error` code | HTTP | When |
+| :--- | :--- | :--- |
+| `INVALID_INPUT` | 400 | Business validation failed (`customerId is required`, `quantity must be greater than 0`, ...) |
+| `BAD_REQUEST` | 400 | Body is not valid JSON or a field has the wrong type |
+| `ORDER_NOT_FOUND` | 404 | The order id does not exist |
+| `ROUTE_NOT_FOUND` | 404 | Unknown path (adapter level) |
+| `METHOD_NOT_ALLOWED` | 405 | Known path, unsupported method (adapter level — see [6.4](#64-findings-from-the-deployed-api)) |
+| `INTERNAL_SERVER_ERROR` | 500 | Any unexpected failure; no internal details are exposed |
+
 ---
 
-## 3. Architecture Overview & System Diagrams
+## 2. Architecture Diagrams
 
-### Final Architecture Diagram
+### Final architecture (Architecture B, proxy integration)
 
 ```mermaid
-flowchart TD
-    subgraph External["External World"]
-        Client["HTTP Client (Postman / cURL / Web App)"]
-    end
+flowchart LR
+    Client["HTTP client<br/>(curl / Postman)"]
 
-    subgraph AWS_Cloud["AWS Infrastructure (Cloud Boundary)"]
-        APIGW["Amazon API Gateway
-        - TLS Termination
-        - DNS & Edge Routing
-        - Pass-through to Lambda Proxy"]
-        
-        subgraph LambdaEnv["AWS Lambda Execution Environment"]
-            LambdaRuntime["AWS Lambda Java 17 Managed Runtime"]
-            
-            subgraph AdapterLayer["HTTP Adapter Layer (AWS & HTTP Aware)"]
-                ProxyHandler["OrdersProxyHandler
-                - Parses APIGatewayProxyRequestEvent
-                - Maps Routes (GET, POST, DELETE)
-                - Jackson JSON (De)serialization
-                - Generates HTTP Status & Headers (201, 204, 404)"]
-            end
-            
-            subgraph CoreDomain["Pure Java Application Core (POJO / Plain Java)"]
-                Service["OrderService
-                - Business Validation
-                - ID Generation (ORD-XXXXXX)
-                - Domain Exception Generation"]
-                
-                Repo["OrderRepository / InMemoryOrderRepository
-                - Thread-safe storage (ConcurrentHashMap)
-                - Query & Mutation logic"]
-                
-                Entities["Domain Entities & Exceptions
-                - Order
-                - CreateOrderRequest
-                - OrderNotFoundException
-                - InvalidOrderException"]
-            end
+    subgraph AWS["AWS — depends on AWS"]
+        APIGW["Amazon API Gateway<br/>REST API · stage Prod<br/>routes: POST/GET /orders<br/>GET/DELETE /orders/{id}"]
+        subgraph Lambda["AWS Lambda · orders-proxy-handler · java17"]
+            Adapter["OrdersProxyHandler (HTTP adapter)<br/>reads APIGatewayProxyRequestEvent<br/>routing · Jackson · status codes · headers"]
         end
     end
 
-    Client -->|"HTTP Request (POST, GET, DELETE)"| APIGW
-    APIGW -->|"JSON Proxy Event"| LambdaRuntime
-    LambdaRuntime -->|"APIGatewayProxyRequestEvent"| ProxyHandler
-    ProxyHandler -->|"Plain DTOs (CreateOrderRequest, IDs)"| Service
-    Service -->|"Domain Operations"| Repo
-    Repo -.-> Entities
-    Service -->|"Domain Entity / Throws Domain Exception"| ProxyHandler
-    ProxyHandler -->|"APIGatewayProxyResponseEvent (Status, Body, Headers)"| LambdaRuntime
-    LambdaRuntime -->|"Serialized JSON Response"| APIGW
-    APIGW -->|"HTTP Response (200, 201, 204, 400, 404)"| Client
+    subgraph Core["Plain Java — no AWS, no HTTP"]
+        Service["OrderService<br/>validation · id generation"]
+        Repo["OrderRepository<br/>InMemoryOrderRepository"]
+        Domain["Order · CreateOrderRequest<br/>OrderNotFoundException · InvalidOrderException"]
+    end
 
-    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#232F3E;
-    classDef adapter fill:#3F83F8,stroke:#1C3D5A,stroke-width:2px,color:#ffffff;
-    classDef pureJava fill:#10B981,stroke:#065F46,stroke-width:2px,color:#ffffff;
-    classDef ext fill:#6B7280,stroke:#374151,stroke-width:2px,color:#ffffff;
+    Client -- "HTTP request" --> APIGW
+    APIGW -- "proxy event (JSON)" --> Adapter
+    Adapter -- "createOrder / getOrder /<br/>getOrdersByCustomer / deleteOrder" --> Service
+    Service --> Repo
+    Service -. uses .-> Domain
+    Service -- "Order / domain exception" --> Adapter
+    Adapter -- "statusCode + headers + body" --> APIGW
+    APIGW -- "HTTP response" --> Client
 
-    class APIGW,LambdaRuntime aws;
-    class ProxyHandler adapter;
-    class Service,Repo,Entities pureJava;
-    class Client ext;
+    classDef aws fill:#FF9900,stroke:#232F3E,color:#232F3E;
+    classDef adapter fill:#3F83F8,stroke:#1C3D5A,color:#ffffff;
+    classDef java fill:#10B981,stroke:#065F46,color:#ffffff;
+    class APIGW aws;
+    class Adapter adapter;
+    class Service,Repo,Domain java;
 ```
 
-### AWS Dependencies vs Pure Java Separation
+### Architecture A (non-proxy integration), deployed for comparison
 
-| Component | Package / Module | Depends on AWS? | Depends on HTTP? | Purpose |
+```mermaid
+flowchart LR
+    Client["HTTP client"]
+    subgraph AWS["AWS — depends on AWS"]
+        APIGW["API Gateway · orders-non-proxy-api · stage prod<br/>VTL request templates (extract id / customerId)<br/>selection patterns on errorMessage → 200/201/400/404/500"]
+        L1["Lambda orders-create-order-pojo<br/>CreateOrderPojoHandler"]
+        L2["Lambda orders-get-order-pojo<br/>GetOrderPojoHandler"]
+    end
+    subgraph Core["Plain Java"]
+        Service["OrderService + InMemoryOrderRepository<br/>(one independent copy per Lambda)"]
+    end
+    Client --> APIGW
+    APIGW -- "POST /orders" --> L1
+    APIGW -- "GET /orders/{id}<br/>GET /orders?customerId=" --> L2
+    L1 --> Service
+    L2 --> Service
+    classDef aws fill:#FF9900,stroke:#232F3E,color:#232F3E;
+    classDef java fill:#10B981,stroke:#065F46,color:#ffffff;
+    class APIGW,L1,L2 aws;
+    class Service java;
+```
+
+### Which components depend on AWS
+
+| Component | Package | AWS? | HTTP? | Role |
 | :--- | :--- | :--- | :--- | :--- |
-| `Order` | `com.serverless.workshop.domain` | **No** (Pure Java) | **No** | Core domain entity |
-| `CreateOrderRequest` | `com.serverless.workshop.domain` | **No** (Pure Java) | **No** | Input DTO for creation |
-| `OrderNotFoundException` | `com.serverless.workshop.domain` | **No** (Pure Java) | **No** | Business domain exception |
-| `InvalidOrderException` | `com.serverless.workshop.domain` | **No** (Pure Java) | **No** | Business validation exception |
-| `OrderRepository` | `com.serverless.workshop.repository` | **No** (Pure Java) | **No** | Persistence abstraction interface |
-| `InMemoryOrderRepository`| `com.serverless.workshop.repository` | **No** (Pure Java) | **No** | Thread-safe in-memory store |
-| `OrderService` | `com.serverless.workshop.service` | **No** (Pure Java) | **No** | Pure application business logic |
-| `OrdersProxyHandler` | `com.serverless.workshop.lambda.proxy` | **Yes** (`aws-lambda-java-events`) | **Yes** (Status codes, headers) | HTTP Adapter / Front Controller |
-| `CreateOrderPojoHandler`| `com.serverless.workshop.lambda.pojo` | **Yes** (`aws-lambda-java-core`) | **No** | Direct POJO handler for Arch A |
-| `GetOrderPojoHandler` | `com.serverless.workshop.lambda.pojo` | **Yes** (`aws-lambda-java-core`) | **No** | Direct POJO handler for Arch A |
+| `Order`, `CreateOrderRequest` | `domain` | No | No | Domain model / input DTO |
+| `OrderNotFoundException`, `InvalidOrderException` | `domain` | No | No | Domain outcomes |
+| `OrderRepository`, `InMemoryOrderRepository` | `repository` | No | No | Storage abstraction (in memory) |
+| `OrderService` | `service` | No | No | Business logic and validation |
+| `CreateOrderPojoHandler`, `GetOrderPojoHandler`, `GetOrderRequest` | `lambda.pojo` | Yes (`aws-lambda-java-core`) | No | Lambda entry points for Architecture A |
+| `OrdersProxyHandler` | `lambda.proxy` | Yes (`aws-lambda-java-events`) | Yes | HTTP adapter for Architecture B |
+| `ErrorResponse` | `lambda.proxy` | No | Yes | HTTP error body (part of the HTTP contract, not of the domain) |
 
 ---
 
-## 4. Part I — Plain Java Implementation & Local Testing
+## 3. Part I — Plain Java Application & Local Tests
 
-### Domain & Service Design
-The core business layer is implemented in standard Java 17:
-* **Validation**: Performed entirely inside `OrderService.java` (e.g. verifying non-null strings, non-blank customer IDs, quantity $> 0$).
-* **Storage**: Encapsulated behind `OrderRepository.java` using a `ConcurrentHashMap` inside `InMemoryOrderRepository.java`.
-* **Testing**: 8 JUnit 5 tests verify every business rule without starting any network port, server, or cloud emulator.
+The application logic is ordinary Java: `OrderService` validates input, generates ids (`ORD-` + 6 hex characters) and works with `OrderRepository`. `InMemoryOrderRepository` keeps orders in a `ConcurrentHashMap` and is pre-loaded with `ORD-001` (CUST-42), `ORD-042` (CUST-7) and `ORD-100` (CUST-42).
 
-### Checkpoint 1: Local Testing Without AWS
-
-#### Can the application functionality be tested without AWS?
-**Yes, 100%.** Because `OrderService` and `InMemoryOrderRepository` have zero imports from `com.amazonaws.*`, unit tests run directly in standard JVM test runners within milliseconds (`mvn test`).
-
-#### Does your application require a web server?
-**No.** The application does not instantiate Tomcat, Jetty, Netty, or any HTTP listener. When deployed on AWS Lambda, AWS manages the underlying server and execution container. Locally, tests invoke plain Java methods directly.
-
-#### Does it require Spring Boot?
-**No.** Avoiding Spring Boot eliminates large JAR sizes (saving dozens of megabytes) and avoids JVM reflection overhead, drastically minimizing Lambda **cold start latency** from ~6–10 seconds down to <1 second.
-
-#### What does the generated JAR contain?
-The Maven Shade plugin packages an **Uber-JAR** (`orders-api-1.0.0.jar`, ~3.3 MB) containing:
-1. Compiled application `.class` files (`domain`, `repository`, `service`, `lambda`).
-2. AWS Lambda core interfaces (`aws-lambda-java-core`, `aws-lambda-java-events`).
-3. Jackson databind library and its dependencies for JSON serialization.
-4. `META-INF/MANIFEST.MF`.
-*(JUnit dependencies are marked `<scope>test</scope>` and are excluded from the runtime JAR).*
-
-#### Which parts of your application currently know about HTTP?
-In Part I, **none**. Neither `Order`, `CreateOrderRequest`, `OrderRepository`, nor `OrderService` know about HTTP methods, status codes, query strings, or headers. Only the later adapter classes (`OrdersProxyHandler`) introduce HTTP knowledge.
-
----
-
-## 5. Part II — AWS Lambda Direct Invocation & JSON Serialization
-
-### Runtime Deserialization Investigation
-
-#### How does the AWS Lambda Java runtime convert JSON input into Java objects and return values back to JSON?
-1. **Invocation Entry Point**: When Lambda invokes a handler method such as `handleRequest(CreateOrderRequest input, Context context)`, the Lambda runtime reads the raw incoming UTF-8 byte stream from the AWS Lambda Runtime API endpoint (`/runtime/invocation/next`).
-2. **Built-in POJO Deserialization**: The official AWS Lambda Java runtime contains a built-in JSON serializer (implemented internally via Jackson).
-   - If the handler parameter is a POJO (e.g. `CreateOrderRequest`), the runtime inspects the class structure via reflection.
-   - It instantiates the target class using its default no-argument constructor.
-   - It matches JSON field names with corresponding Java setter methods or public fields (e.g., `"customerId"` $\to$ `setCustomerId(String)`).
-3. **Return Value Serialization**: When the Java method returns a Java object (e.g., `Order`), the Lambda runtime serializes the object's getter properties into a UTF-8 JSON string and posts it to the Runtime API invocation response endpoint (`/runtime/invocation/{AwsRequestId}/response`).
-
-### Checkpoint 2: Serialization Flow Diagram
+Real result of `mvn clean test` (Windows, Maven 3.9.6, JDK 21 compiling for Java 17):
 
 ```
-+-------------------------------------------------------------+
-|                     Client / AWS CLI                        |
-+-------------------------------------------------------------+
-                              |
-                              | Raw JSON Payload:
-                              | {"customerId":"CUST-42", "product":"MacBook Air", "quantity":1}
-                              v
-+-------------------------------------------------------------+
-|               AWS Lambda Managed Java Runtime               |
-|                                                             |
-| 1. Reads incoming byte stream from Runtime API              |
-| 2. Identifies target parameter type: CreateOrderRequest.class|
-| 3. Built-in Jackson Deserializer maps JSON keys to Setters  |
-+-------------------------------------------------------------+
-                              |
-                              | Instantiated Java Object:
-                              | CreateOrderRequest instance
-                              v
-+-------------------------------------------------------------+
-|               User Handler Method (Java)                    |
-|       CreateOrderPojoHandler::handleRequest                 |
-|                                                             |
-| - Executes business logic: orderService.createOrder(req)   |
-| - Generates ID, validates business constraints              |
-| - Returns new Order("ORD-XXXXXX", "CUST-42", ...)           |
-+-------------------------------------------------------------+
-                              |
-                              | Resulting Java Object:
-                              | Order instance
-                              v
-+-------------------------------------------------------------+
-|               AWS Lambda Managed Java Runtime               |
-|                                                             |
-| 1. Intercepts return value                                  |
-| 2. Built-in Jackson Serializer reads Getters via Reflection |
-| 3. Generates UTF-8 JSON String                              |
-+-------------------------------------------------------------+
-                              |
-                              | Response JSON:
-                              | {"id":"ORD-8A3B12","customerId":"CUST-42",...}
-                              v
-+-------------------------------------------------------------+
-|                     Client / Caller                         |
-+-------------------------------------------------------------+
+Tests run: 5,  Failures: 0, Errors: 0, Skipped: 0 -- in com.serverless.workshop.lambda.pojo.PojoHandlersTest
+Tests run: 15, Failures: 0, Errors: 0, Skipped: 0 -- in com.serverless.workshop.lambda.proxy.OrdersProxyHandlerTest
+Tests run: 8,  Failures: 0, Errors: 0, Skipped: 0 -- in com.serverless.workshop.service.OrderServiceTest
+Tests run: 28, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
+```
+
+| Test class | What it covers |
+| :--- | :--- |
+| `OrderServiceTest` (8) | valid creation, retrieval, non-existent order, search by customer, invalid input, delete existing / non-existent |
+| `PojoHandlersTest` (5) | POJO handlers of Architecture A called as plain Java |
+| `OrdersProxyHandlerTest` (15) | every HTTP outcome of the adapter: 200, 201 + `Location`, 204, 400 (validation, malformed JSON, wrong type), 404, 405, unknown route, unknown JSON fields, 500 |
+
+### Checkpoint 1
+
+* **Can the functionality be tested without AWS?** Yes. All 28 tests run with `mvn test` and no AWS account, emulator or network.
+* **Does the application require a web server?** No. Nothing opens a port; in AWS the Lambda service invokes a Java method.
+* **Does it require Spring Boot?** No. Only the AWS Lambda interfaces and Jackson are used.
+* **What does the generated JAR contain?** `mvn package` produces two files:
+  * `original-orders-api-1.0.0.jar` — **20,653 bytes**, only our compiled classes.
+  * `orders-api-1.0.0.jar` — **3,384,988 bytes**, the shaded ("uber") JAR deployed to Lambda: our classes plus `aws-lambda-java-core 1.2.3`, `aws-lambda-java-events 3.11.4`, `joda-time 2.10.8` (pulled by the events library) and Jackson `2.16.1` (`databind`, `core`, `annotations`). JUnit is `test` scope and is not included.
+* **Which parts know about HTTP?** Only `lambda.proxy` (`OrdersProxyHandler`, `ErrorResponse`). The domain, repository and service do not.
+
+---
+
+## 4. Part II — Direct Lambda Invocation & JSON Serialization
+
+`CreateOrderPojoHandler implements RequestHandler<CreateOrderRequest, Order>` is deployed unchanged as `orders-create-order-pojo` and invoked with a JSON document:
+
+```powershell
+aws lambda invoke --function-name orders-create-order-pojo --cli-binary-format raw-in-base64-out `
+  --payload fileb://events/pojo-create-order-input1.json out1.json
+```
+
+| Input file | Real output |
+| :--- | :--- |
+| `pojo-create-order-input1.json` `{"customerId":"CUST-42","product":"MacBook Air","quantity":1}` | `{"id":"ORD-384ABA","customerId":"CUST-42","product":"MacBook Air","quantity":1}` |
+| `pojo-create-order-input2.json` `{"customerId":"CUST-99","product":"Dell UltraSharp Monitor","quantity":2}` | `{"id":"ORD-C0904A","customerId":"CUST-99","product":"Dell UltraSharp Monitor","quantity":2}` |
+
+### How does the runtime convert JSON to Java and back?
+
+The Lambda Java runtime reads the handler's generic types (`RequestHandler<CreateOrderRequest, Order>`), creates the input object with its **no-argument constructor** and fills it through the **setters** that match the JSON field names, using a Jackson-based serializer bundled in the runtime. The returned object is serialized back to JSON through its **getters**. If the handler throws, the runtime returns an error document instead.
+
+This explanation was obtained with the help of the AI assistant and then **verified against the deployed function** with four extra inputs:
+
+| Experiment | Input | Real output | Conclusion |
+| :--- | :--- | :--- | :--- |
+| Unknown field | `{"customerId":"CUST-1","product":"Mouse","quantity":1,"extra":true}` | `{"id":"ORD-41B09B",...,"quantity":1}` | Unknown fields are **ignored** |
+| Number as text | `..."quantity":"2"}` | `{"id":"ORD-449E09",...,"quantity":2}` | The string `"2"` is **coerced** to `int` |
+| Missing field | `{"customerId":"CUST-1","product":"Mouse"}` | `{"errorMessage":"quantity must be greater than 0",...}` | A missing `int` keeps its Java default **0**, so our validation rejects it |
+| Exception | `{"customerId":"","product":"Mouse","quantity":1}` | `{"errorMessage":"customerId is required","errorType":"com.serverless.workshop.domain.InvalidOrderException","stackTrace":["com.serverless.workshop.service.OrderService.createOrder(OrderService.java:36)", ...]}` | An uncaught exception becomes `errorMessage` + `errorType` + **full stack trace** |
+
+The last row matters for the architecture: when a Lambda is called directly, an exception exposes internal class names and line numbers. Architecture A hides it with response templates and Architecture B never lets the exception leave the adapter.
+
+### Checkpoint 2 — actual flow
+
+```
+{"customerId":"CUST-42","product":"MacBook Air","quantity":1}      (JSON payload)
+        │
+        ▼
+AWS Lambda Java runtime ── new CreateOrderRequest() + setters      (JSON → Java object)
+        │
+        ▼
+CreateOrderPojoHandler.handleRequest(request, context)
+        │  orderService.createOrder(request)
+        ▼
+Order("ORD-384ABA","CUST-42","MacBook Air",1)                      (Java object)
+        │
+        ▼
+AWS Lambda Java runtime ── getters                                 (Java object → JSON)
+        │
+        ▼
+{"id":"ORD-384ABA","customerId":"CUST-42","product":"MacBook Air","quantity":1}
 ```
 
 ---
 
-## 6. Part III & IV — Architecture A: API Gateway Non-Proxy Integration
+## 5. Part III & IV — Architecture A: Non-Proxy Integration
 
-In Architecture A, API Gateway acts as an intelligent transformation and routing engine between HTTP and Lambda POJO handlers.
+Defined in [`orders-api/template.yaml`](orders-api/template.yaml) as the `NonProxyOrdersApi` resource (Swagger 2.0 with `x-amazon-apigateway-integration` of type `aws`). The reference copies of the request templates are in [`orders-api/api-gateway/vtl/`](orders-api/api-gateway/vtl/).
 
-```
-HTTP Request ---> API Gateway (VTL Mapping) ---> Lambda POJO Handler ---> API Gateway (Regex Response Mapping) ---> HTTP Response
-```
+### Request mapping (API Gateway builds the JSON the Java function expects)
 
-### VTL Mapping Templates
-
-#### Request Mapping Template: `GET /orders/{id}`
-API Gateway extracts the `{id}` parameter from the path and constructs the POJO input:
-```velocity
-{
-  "id": "$input.params('id')"
-}
-```
-
-#### Request Mapping Template: `GET /orders?customerId={customerId}`
-API Gateway extracts the query parameter:
-```velocity
-{
-  "customerId": "$input.params('customerId')"
-}
-```
-
-#### Request Mapping Template: `POST /orders`
-API Gateway forwards the JSON request body directly:
-```velocity
-$input.json('$')
-```
-
-### Checkpoint 3: Responsibility Distribution Analysis
-
-#### What is API Gateway responsible for in Architecture A?
-* **Resource Routing**: Matching URL paths to specific backend Lambda functions.
-* **Parameter Extraction**: Parsing path parameters (`{id}`) and query strings (`?customerId=`).
-* **Payload Transformation**: Constructing synthetic JSON payloads using Apache Velocity (VTL).
-* **Response Status Code Mapping**: Inspecting Java exception messages via regular expressions (e.g. `.*Order.*not exist.*` $\to$ `404 Not Found`) and mapping successful outputs to `200` or `201`.
-* **Header Manipulation**: Injecting response headers (e.g. `Location`).
-
-#### Advantages and Disadvantages of Architecture A
-
-| Category | Advantages | Disadvantages |
+| Route | Lambda | Request template |
 | :--- | :--- | :--- |
-| **Coupling** | Java code has **zero knowledge of HTTP**; classes take and return pure POJOs. | Business logic is split across two systems: Java and API Gateway VTL templates. |
-| **Testing** | POJOs are simple to unit test. | Integration between VTL and Java cannot be tested locally without deploying to AWS. |
-| **Maintenance** | API Gateway handles basic parameter extraction. | Changing a parameter name requires updating Java code, VTL templates, and API Gateway mapping. |
-| **Error Handling** | API Gateway can mask internal stack traces. | Mapping status codes relies on fragile string matching / regex against Java exception messages. |
+| `GET /orders/{id}` | `orders-get-order-pojo` | `{ "id": "$util.escapeJavaScript($input.params('id'))" }` |
+| `GET /orders?customerId=` | `orders-get-order-pojo` | `{ "customerId": "$util.escapeJavaScript($input.params('customerId'))" }` |
+| `POST /orders` | `orders-create-order-pojo` | `$input.json('$')` |
 
----
+So for `GET /orders/ORD-001` the Java handler only receives `{"id":"ORD-001"}` and never sees the HTTP request.
 
-## 7. Part V — Architecture B: Lambda Proxy Integration
+### Response mapping (API Gateway chooses the status code)
 
-In Architecture B, API Gateway acts as a transparent pass-through. It wraps the entire HTTP request into a structured JSON event (`APIGatewayProxyRequestEvent`) and forwards it to Lambda.
+API Gateway matches the Lambda `errorMessage` against regular expressions:
 
-```
-HTTP Request ---> API Gateway (Pass-through) ---> Lambda HTTP Adapter (OrdersProxyHandler) ---> Core Java Logic
-```
-
-### Proxy Event Structure
-An example proxy event received by the Lambda handler:
-```json
-{
-  "resource": "/orders/{id}",
-  "path": "/orders/ORD-001",
-  "httpMethod": "GET",
-  "headers": {
-    "Accept": "application/json",
-    "Host": "api.example.com"
-  },
-  "queryStringParameters": null,
-  "pathParameters": {
-    "id": "ORD-001"
-  },
-  "stageVariables": null,
-  "requestContext": {
-    "resourcePath": "/orders/{id}",
-    "httpMethod": "GET",
-    "stage": "prod",
-    "requestId": "c6DyGGFyvHcFsBQ="
-  },
-  "body": null,
-  "isBase64Encoded": false
-}
-```
-*(Complete example event files are preserved in [`orders-api/events/`](orders-api/events/)).*
-
-### HTTP Adapter Implementation
-The class [`OrdersProxyHandler.java`](orders-api/src/main/java/com/serverless/workshop/lambda/proxy/OrdersProxyHandler.java) acts as the **HTTP Adapter / Front Controller**:
-1. Inspects `getHttpMethod()` and `getPath()`.
-2. Dispatches calls to `orderService.createOrder()`, `getOrder()`, `getOrdersByCustomer()`, or `deleteOrder()`.
-3. Catches domain exceptions (`OrderNotFoundException`, `InvalidOrderException`) and maps them to HTTP responses.
-4. Serializes outgoing responses into `APIGatewayProxyResponseEvent`.
-
-### HTTP Semantics & Status Codes
-* **200 OK**: Returned for successful retrieval (`GET /orders/{id}`) and customer search (`GET /orders?customerId=...`).
-* **201 Created**: Returned for successful creation (`POST /orders`). Includes the `Location: /orders/{id}` header and newly created `Order` body.
-* **204 No Content**: Returned for successful deletion (`DELETE /orders/{id}`) and CORS preflight (`OPTIONS`), with empty body.
-* **400 Bad Request**: Returned for validation errors (missing customer ID, negative quantity) or malformed JSON syntax.
-* **404 Not Found**: Returned when an order ID does not exist (`ORDER_NOT_FOUND`) or an unmatched route is requested.
-* **500 Internal Server Error**: Returned for unexpected server-side failures, preventing internal stack trace leakage.
-
----
-
-## 8. Comprehensive Architecture Comparison (A vs B)
-
-| Question | Architecture A: API Gateway Transformation (Non-Proxy) | Architecture B: Lambda Proxy Integration |
+| Selection pattern | Status | Body (response template) |
 | :--- | :--- | :--- |
-| **1. Which approach required more API Gateway configuration?** | **Architecture A by far.** Each endpoint requires configuring Method Request, Integration Request (VTL templates), Integration Response (regex error patterns), and Method Response. | **Minimal.** API Gateway requires only a single greedy proxy resource (`{proxy+}`) or standard proxy pass-through methods. |
-| **2. Which approach required more Java infrastructure code?** | Minimal Java infrastructure. Only simple POJO handlers are written. | Requires an **HTTP Adapter** (`OrdersProxyHandler`) to parse query strings, path parameters, headers, and serialize responses. |
-| **3. Which was easier to test locally?** | Difficult to test end-to-end locally. While POJOs can be unit-tested, the actual HTTP-to-POJO transformation (VTL) can only be verified in AWS. | **Much easier to test locally.** The adapter and all routing, status codes, and headers are exercised using standard JUnit tests with `APIGatewayProxyRequestEvent`. |
-| **4. Where are HTTP status codes defined in each approach?** | In **API Gateway Integration Responses**, mapped via regex matching against Lambda exception strings. | In the **Java HTTP Adapter (`OrdersProxyHandler`)**, defined cleanly as integer constants in code. |
-| **5. What happens if the API grows from 3 operations to 30?** | API Gateway configuration becomes bloated, fragile, and difficult to maintain across dozens of VTL templates and regex mappings. | API Gateway configuration remains unchanged. Additional endpoints are handled via clean code routing or router patterns in Java. |
-| **6. Which approach makes the Java business logic cleaner?** | Both keep business logic clean if properly structured. In Arch A, handlers are pure POJOs. In Arch B, business logic in `OrderService` remains 100% decoupled from HTTP. | Both keep business logic clean. Arch B keeps HTTP routing inside Java rather than delegating it to cloud console configuration. |
-| **7. Which approach would be easier for another developer to understand?** | Harder. A developer must navigate both the AWS API Gateway console/CloudFormation and the Java codebase to trace an operation. | **Much easier.** All routing, parameter extraction, and status codes live directly in version-controlled Java source code. |
-| **8. Which approach would you choose for a larger system? Why?** | **Architecture B (Proxy Integration).** It keeps infrastructure as dumb pipes and concentrates application behavior in testable, version-controlled code. |
+| *(no error)* | `200` (`201` for POST) | Lambda result unchanged |
+| `(?s).*does not exist.*` | `404` | `{ "error": "ORDER_NOT_FOUND", "message": <errorMessage> }` |
+| `(?s).*(required\|must\|cannot\|JSON parsing).*` | `400` | `{ "error": "INVALID_INPUT", "message": <errorMessage> }` |
+| `(?s)(?!.*(does not exist\|required\|must\|cannot\|JSON parsing)).+` | `500` | `{ "error": "INTERNAL_SERVER_ERROR", "message": "An unexpected internal error occurred" }` |
+
+### Real results (`https://<api-id>.execute-api.us-east-1.amazonaws.com/prod/orders`)
+
+| # | Request | Status | Body |
+| :--- | :--- | :--- | :--- |
+| A1 | `POST /orders` (CUST-42, MacBook Air, 1) | **201 Created** | `{"id":"ORD-63518C","customerId":"CUST-42","product":"MacBook Air","quantity":1}` |
+| A2 | `GET /orders/ORD-001` | **200 OK** | `{"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1}` |
+| A3 | `GET /orders?customerId=CUST-42` | **200 OK** | `[ORD-001, ORD-100]` — the order created in A1 is **not** listed |
+| A4 | `GET /orders?customerId=CUST-100` | **200 OK** | `[]` |
+| A5 | `GET /orders/ORD-999` | **404 Not Found** | `{ "error": "ORDER_NOT_FOUND", "message": "Order ORD-999 does not exist" }` |
+| A6 | `POST /orders` `{"customerId":"","product":"Mouse","quantity":0}` | **400 Bad Request** | `{ "error": "INVALID_INPUT", "message": "customerId is required" }` |
+| A7 | `GET /orders` (no `customerId`) | **400 Bad Request** | `{ "error": "INVALID_INPUT", "message": "Either id or customerId must be provided" }` |
+
+Observations:
+* **No `Location` header in A1.** A mapping template cannot easily build `/orders/{id}` from the Lambda result.
+* **A3 does not contain `ORD-63518C`.** POST and GET are different Lambdas with separate memory (see [section 7](#7-in-memory-storage-is-ephemeral)).
+* The error JSON is produced by VTL, not by Jackson (note the spaces), so the format has to be kept consistent by hand.
+
+### Checkpoint 3 — what API Gateway is responsible for in Architecture A
+
+* **Routing:** each method/path is wired to a specific Lambda.
+* **Extracting path and query parameters:** `$input.params('id')`, `$input.params('customerId')`.
+* **Transforming requests:** building the JSON document for the POJO handler.
+* **Choosing status codes:** 201 for POST, 404/400/500 from regular expressions over `errorMessage`.
+* **Transforming responses and mapping errors:** response templates build the `{error, message}` body and hide the stack trace.
+
+**Advantages:** the Java handlers are plain POJOs with no HTTP knowledge; the stack trace is hidden at the edge; one place (API Gateway) defines the whole HTTP contract.
+
+**Disadvantages:**
+* The **status code depends on the text of Java exception messages.** Renaming `"customerId is required"` would silently change a 400 into a 500 and no unit test would detect it.
+* The mapping logic (VTL + regex) **cannot be tested locally** — it was only verified after deploying.
+* The configuration is large: the non-proxy API plus its permissions take about **140 lines** of `template.yaml` for 3 operations.
+* Some HTTP features are awkward, e.g. the `Location` header.
 
 ---
 
-## 9. Criticize Your AI Assistant (3 Critical Decisions)
+## 6. Part V — Architecture B: Lambda Proxy Integration
 
-During development, the AI coding assistant proposed several architectural decisions. Below is a critical engineering evaluation of three non-trivial decisions:
+### 6.1 The proxy event
 
-### Decision 1: Single Routing Lambda Handler vs. One Lambda Per Operation
-* **What the Agent Proposed**: A single Lambda function (`OrdersProxyHandler`) acting as a Front Controller / Router handling all HTTP methods (`POST`, `GET`, `DELETE`) for orders.
-* **Why the Agent Proposed This**:
-  1. Reduces cold starts by sharing an active Lambda execution container across different order operations.
-  2. Simplifies deployment configuration (one Lambda resource in CloudFormation/SAM).
-  3. Avoids duplicating boilerplate code for serialization and CORS headers across multiple classes.
-* **Do We Agree?**: **Partially, with nuances.**
-  - *Agreement*: For a cohesive microservice domain like Order Management, a single Lambda handler provides better memory container reuse and simplifies local JUnit testing.
-  - *Alternative*: One Lambda per operation (`CreateOrderFunction`, `GetOrderFunction`, `DeleteOrderFunction`).
-  - *Trade-off*: One Lambda per operation provides finer-grained IAM security permissions (least privilege) and independent scaling/memory allocation, but multiplies cold starts and deployment complexity.
-* **Final Choice & Rationale**: We implemented the **Single Proxy Handler** as the primary production architecture for its cohesion, reduced cold starts, and testability, while keeping the standalone POJO handlers in the codebase to demonstrate Architecture A.
+API Gateway sends the whole request to `orders-proxy-handler`. Two **real events** captured from CloudWatch Logs are saved in the repository (IP address and account id replaced):
+
+* [`orders-api/events/real-proxy-event-post-order.json`](orders-api/events/real-proxy-event-post-order.json)
+* [`orders-api/events/real-proxy-event-get-orders-by-customer.json`](orders-api/events/real-proxy-event-get-orders-by-customer.json)
+
+| Information | Where it appears in the event | Example from the real events |
+| :--- | :--- | :--- |
+| HTTP method | `httpMethod` (also `requestContext.httpMethod`) | `"POST"` |
+| Path | `path`; the matched template is in `resource`; `requestContext.path` includes the stage | `"/orders"`, `"resource": "/orders/{id}"`, `"/Prod/orders"` |
+| Path parameters | `pathParameters` | `{"id": "ORD-001"}` (`null` for `/orders`) |
+| Query parameters | `queryStringParameters` (and `multiValueQueryStringParameters`) | `{"customerId": "CUST-42"}` |
+| Headers | `headers` (and `multiValueHeaders`) | `Content-Type`, `User-Agent`, `Host`, `CloudFront-*` |
+| Body | `body` — **always a string**, not a JSON object | `"{\r\n  \"customerId\": \"CUST-42\", ...}"` |
+
+Because `body` is a string, the adapter must deserialize it itself with Jackson.
+
+### 6.2 The HTTP adapter
+
+[`OrdersProxyHandler`](orders-api/src/main/java/com/serverless/workshop/lambda/proxy/OrdersProxyHandler.java) is the only class that knows about API Gateway events and HTTP:
+
+* Routes `/orders` (GET, POST) and `/orders/{id}` (GET, DELETE); a known path with another method returns `405` + `Allow`, an unknown path `404`.
+* Reads `pathParameters`, `queryStringParameters` and `body`; deserializes the body with Jackson, **ignoring unknown fields** (the same behavior observed in the Lambda runtime in section 4).
+* Maps domain outcomes to HTTP: `OrderNotFoundException` → 404, `InvalidOrderException` → 400, malformed JSON / wrong type → 400 with a clean message (e.g. `Invalid value for field 'quantity'`), anything else → 500.
+* Builds the response: status code, `Content-Type` only when there is a body, `Location` after creation.
+* Logs the full incoming event so a real example can be copied from CloudWatch.
+
+`OrderService` still only deals with orders, customers, products and quantities.
+
+### 6.3 Real results (`https://<api-id>.execute-api.us-east-1.amazonaws.com/Prod/orders`)
+
+| # | Request | Status | Relevant headers / body |
+| :--- | :--- | :--- | :--- |
+| B1 | `POST /orders` (CUST-42, MacBook Air, 1) | **201 Created** | `Location: /orders/ORD-18548F` · `{"id":"ORD-18548F",...}` |
+| B2 | `GET /orders/ORD-001` | **200 OK** | `{"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1}` |
+| B3 | `GET /orders?customerId=CUST-42` | **200 OK** | `[ORD-001, ORD-100, ORD-18548F]` — includes the order created in B1 |
+| B4 | `GET /orders?customerId=CUST-100` | **200 OK** | `[]` |
+| B5 | `GET /orders/ORD-999` | **404 Not Found** | `{"error":"ORDER_NOT_FOUND","message":"Order ORD-999 does not exist"}` |
+| B6 | `POST /orders` `{"customerId":"","product":"Mouse","quantity":0}` | **400 Bad Request** | `{"error":"INVALID_INPUT","message":"customerId is required"}` |
+| B7 | `DELETE /orders/ORD-042` | **204 No Content** | empty body |
+| B8 | `DELETE /orders/ORD-999` | **404 Not Found** | `{"error":"ORDER_NOT_FOUND","message":"Order ORD-999 does not exist"}` |
+| B9 | `PUT /orders` | **403 Forbidden** | `{"message":"Missing Authentication Token"}` (see below) |
+
+### 6.4 Findings from the deployed API
+
+* **The 405 of the adapter is never reached through API Gateway.** `template.yaml` declares each route explicitly, so API Gateway rejects `PUT /orders` with `403 Missing Authentication Token` before invoking the Lambda. The 405 logic is only exercised by the unit tests. With explicit routes, **routing is effectively an API Gateway responsibility even in the proxy architecture**; a greedy `{proxy+}` route would move it into Java.
+* **API Gateway adds `Content-Type: application/json` to the 204 response**, even though the adapter does not send it (verified by `testDeleteOrderHasNoContentType`). A REST API proxy integration adds this default header when the Lambda omits it.
+* **Cold start (real measurement from CloudWatch `REPORT` lines):** first request `Init Duration: 786.76 ms` + `Duration: 772.84 ms`; the following seven requests took between **2.41 ms and 32.07 ms**, using 110 MB of the 512 MB configured.
 
 ---
 
-### Decision 2: Location of Input Validation (Domain vs. HTTP Adapter vs. API Gateway)
-* **What the Agent Proposed**: Performing all validation (checking for null `customerId`, empty `product`, quantity $\le 0$) inside the core `OrderService` and throwing `InvalidOrderException`.
-* **Why the Agent Proposed This**: It adheres to Domain-Driven Design (DDD): the domain layer protects its own invariants and remains self-contained regardless of entry point.
-* **Do We Agree?**: **Yes, but with an important addition.**
-  - *Nuance*: While business invariant validation must reside in `OrderService`, basic structural JSON syntax validation is caught at the HTTP adapter level (`JsonProcessingException` $\to$ HTTP 400).
-  - *Alternative*: Validating request bodies via JSON Schema directly in API Gateway before Lambda is ever invoked.
-  - *Trade-off*: API Gateway schema validation saves Lambda execution costs by rejecting malformed requests at the edge, but duplicates validation schemas in two places (API Gateway and Java models).
-* **Final Choice & Rationale**: We maintained validation inside `OrderService` for portability and testability, caught syntax errors in `OrdersProxyHandler`, and documented API Gateway request models for edge validation.
+## 7. In-Memory Storage Is Ephemeral
+
+Orders are stored in a `ConcurrentHashMap` inside each Lambda execution environment. This is **not** persistent storage:
+
+* **Each Lambda function has its own memory.** `ORD-384ABA` was created by invoking `orders-create-order-pojo`; asking `orders-get-order-pojo` for it returned `{"errorMessage":"Order ORD-384ABA does not exist", ...}`, while `ORD-001` (pre-loaded in every environment) was found. The same effect explains A3.
+* **One function shares memory only while its environment is alive.** In Architecture B all routes run in `orders-proxy-handler`, so B3 found the order created in B1 — but only because the same warm environment served both requests.
+* When Lambda creates a new environment (cold start, scaling to several concurrent environments, or after a period of inactivity) the data goes back to the three seeded orders.
+
+A real system would replace `InMemoryOrderRepository` with an implementation backed by a database (for example DynamoDB). Because `OrderService` depends on the `OrderRepository` interface, only that class and its wiring would change.
 
 ---
 
-### Decision 3: Use of Raw Jackson & `aws-lambda-java-events` vs. Spring Cloud Function
-* **What the Agent Proposed**: Using lightweight `aws-lambda-java-events` and Jackson `ObjectMapper` directly, avoiding heavyweight frameworks like Spring Cloud Function or Quarkus.
-* **Why the Agent Proposed This**: Heavyweight frameworks carry substantial cold start penalties in Java serverless environments.
-* **Do We Agree?**: **Strongly agree.**
-  - *Alternative*: Spring Boot with `aws-serverless-java-container` or Spring Cloud Function.
-  - *Trade-off*: Spring provides familiar dependency injection and annotations (`@RestController`, `@PostMapping`), but increases JAR size from 3 MB to 45+ MB and spikes cold start latency from ~800 ms to over 7 seconds.
-* **Final Choice & Rationale**: Plain Java 17 with Jackson. It delivers optimal performance, sub-second cold starts, transparent behavior, and minimal artifact size.
+## 8. Unexpected Internal Errors (500)
+
+| Situation | What the client gets |
+| :--- | :--- |
+| Architecture B | The adapter's last `catch (Exception)` logs the error and returns `500 {"error":"INTERNAL_SERVER_ERROR","message":"An unexpected internal error occurred"}`. Verified locally by `testUnexpectedErrorReturns500` (a service that throws `IllegalStateException`). |
+| Architecture A | Any `errorMessage` that matches none of the known patterns is mapped by API Gateway to the same 500 body. |
+| Direct Lambda invocation | The runtime returns `errorMessage`, `errorType` and the full `stackTrace` (section 4). |
 
 ---
 
-## 10. Final Challenge — DELETE /orders/{id}
+## 9. Comparison of the Two Architectures
+
+| Question | Architecture A — API Gateway transformation | Architecture B — proxy + Java adapter |
+| :--- | :--- | :--- |
+| **More API Gateway configuration?** | **A.** ~140 lines of `template.yaml`: request templates, selection patterns, response templates and explicit Lambda permissions for 3 operations. | ~33 lines: one function with four `Api` events; SAM generates integrations and permissions. |
+| **More Java infrastructure code?** | Small POJO handlers (`CreateOrderPojoHandler`, `GetOrderPojoHandler`, `GetOrderRequest`: ~120 lines). | **B.** `OrdersProxyHandler` (~200 lines) + `ErrorResponse`. |
+| **Easier to test locally?** | Only the POJO handlers. Parameter extraction and status codes were verified only after deploying. | **B.** 15 unit tests cover routing, status codes, headers and error bodies without AWS. |
+| **Where are status codes defined?** | In API Gateway integration responses, by regex over exception messages. | In Java, in `OrdersProxyHandler`. |
+| **From 3 to 30 operations?** | 30 sets of templates and regexes, each coupled to exception texts; changes need a redeploy to be checked. | 30 explicit routes in `template.yaml` (or one `{proxy+}`) and more routing code; at that size the adapter should use a small router or be split by resource. |
+| **Cleaner Java business logic?** | Both keep `OrderService` free of HTTP. In A, HTTP knowledge leaks into the *text* of exception messages. | Both keep `OrderService` free of HTTP. The adapter isolates all HTTP concerns. |
+| **Easier for another developer to understand?** | Harder: behavior is split between Java and VTL/regex in the template. | Easier: the HTTP behavior is readable and testable Java. |
+| **Choice for a larger system** | — | **B**, because the HTTP contract is version-controlled, unit-tested and not coupled to exception messages. Keeping API Gateway for cross-cutting concerns (auth, throttling, request validation) is still useful. |
+
+---
+
+## 10. Criticizing the AI Assistant
+
+> Review note for the author: these entries must reflect your own judgment. Edit them so they describe what you actually saw and decided.
+
+### Decision 1 — One Lambda for the whole Orders API (proxy) vs one Lambda per operation
+* **Decision made by the agent:** a single `OrdersProxyHandler` routing every method, while keeping two POJO Lambdas only for Architecture A.
+* **Why it probably proposed it:** fewer functions to deploy, one place for serialization and error mapping, fewer cold starts.
+* **Do I agree?** Mostly. The measured cold start (~0.8 s init + ~0.8 s first request, then 2–32 ms) shows that sharing one warm environment helps. But one Lambda gets the permissions of all operations, and the deployed test showed routing still lives in API Gateway with explicit routes.
+* **Alternative:** one Lambda per operation (least privilege, independent memory and scaling), or one Lambda per resource.
+* **What I implemented and why:** one proxy Lambda for Architecture B (cohesive, small API) and separate POJO Lambdas for Architecture A to compare both models.
+
+### Decision 2 — Location of validation
+* **Decision made by the agent:** all business validation in `OrderService`, throwing `InvalidOrderException`.
+* **Why:** the domain protects its own rules regardless of the entry point (POJO handler, proxy adapter or tests).
+* **Do I agree?** Yes, with one addition: JSON syntax and type errors belong to the adapter (`BAD_REQUEST`). The experiments in section 4 showed a subtle gap: a missing `quantity` becomes `0` and is reported as `quantity must be greater than 0` instead of "quantity is required".
+* **Alternative:** API Gateway request validation with a JSON Schema model, rejecting bad requests before invoking Lambda (cheaper, but duplicates the rules).
+* **What I implemented and why:** validation in the service, syntax errors in the adapter. It is portable and testable without AWS.
+
+### Decision 3 — Error handling and status codes in Architecture A
+* **Decision made by the agent:** derive HTTP status codes from the Lambda `errorMessage` with regular expressions.
+* **Why:** it is the standard mechanism of non-proxy integrations; the POJO handlers can stay HTTP-free.
+* **Do I agree?** It works (A5, A6 and A7 returned 404/400 as expected), but it couples the HTTP contract to human-readable messages that nobody would expect to be part of an API.
+* **Alternative:** prefix messages with stable codes (e.g. `NOT_FOUND:`), or use Architecture B where status codes depend on exception **types**.
+* **What I implemented and why:** the regex mapping, documented as the main weakness of Architecture A and one of the reasons to prefer B.
+
+### Additional observation — an assumption the agent got wrong
+When asked about the DELETE extension, the agent first stated that **no API Gateway change was needed** (assuming a greedy `{proxy+}` route). In this project the SAM template declares each route, so a new `DELETE /orders/{id}` event **was** required. Likewise, the 405 handling it proposed is unreachable in the deployed API (section 6.4). Both cases show that the agent's architectural claims must be checked against the actual configuration.
+
+---
+
+## 11. Final Challenge — DELETE /orders/{id}
 
 ### Pre-Implementation Prediction
 The prediction was written and committed **before** implementing the operation, in its own commit (`docs: prediction for DELETE /orders/{id}`), followed by the implementation commit (`feat: implement DELETE /orders/{id}`). See [`orders-api/PREDICTION.md`](orders-api/PREDICTION.md).
-
-Summary of the prediction:
 
 | Question | Prediction |
 | :--- | :--- |
@@ -464,240 +435,102 @@ Summary of the prediction:
 
 ### Evaluation & Comparison
 
-The AI assistant was then asked to implement the operation. Comparison between the prediction and what the agent produced:
-
 | Aspect | Prediction | Agent implementation | Match? |
 | :--- | :--- | :--- | :--- |
 | Classes changed | 4 classes, domain entities untouched | Same 4 classes; `Order` / `CreateOrderRequest` untouched | Yes |
-| New Lambda | None for Architecture B | None; a new `case "DELETE"` in `OrdersProxyHandler` | Yes |
+| New Lambda | None for Architecture B | None; a new `DELETE` case in `OrdersProxyHandler` | Yes |
 | Architecture A | Would need a new POJO handler + mappings | Not implemented: DELETE exists only in Architecture B | Partial — the agent skipped it |
 | API Gateway | New route in `template.yaml` | Added `DeleteOrderById` event (`DELETE /orders/{id}`) | Yes |
-| 204 / 404 decision | Service signals existence, adapter picks status | `deleteOrder` throws `OrderNotFoundException`; the existing `catch` returns 404, success returns 204 | Yes |
+| 204 / 404 decision | Service signals existence, adapter picks status | `deleteOrder` throws `OrderNotFoundException`; the adapter returns 404, success returns 204 | Yes |
 | Tests | 4 new tests | 4 new tests (2 service, 2 adapter) | Yes |
 | Extra | — | Added an example proxy event `events/apigw-proxy-delete-order.json` | Not predicted |
 
 **Observations:**
-* The prediction was correct because the responsibilities were already separated: the change touched the repository, the service and one `case` in the adapter, and no domain entity.
-* The agent's earlier explanation claimed that no API Gateway change was needed (assuming a greedy `{proxy+}` route). That is not true for this project: the SAM template declares each route, so the new route **was** required.
-* The 204 response still carries a `Content-Type: application/json` header with an empty body. It works, but it is unnecessary for a response without content.
+* The prediction was correct because responsibilities were already separated: the change touched the repository, the service and one case in the adapter, and no domain entity.
+* The agent's earlier claim that no API Gateway change was needed was wrong for this project (see section 10).
+* The first implementation also sent `Content-Type` on the 204; it was removed later in the adapter, but API Gateway still adds it (section 6.4).
 
-**Verification:**
-* `DELETE /orders/ORD-001` → **`204 No Content`** with an empty body.
-* `DELETE /orders/ORD-999` → **`404 Not Found`** with `{ "error": "ORDER_NOT_FOUND", "message": "Order ORD-999 does not exist" }`.
+**Verification on the deployed API:** `DELETE /orders/ORD-042` → **204 No Content** (B7); `DELETE /orders/ORD-999` → **404** `ORDER_NOT_FOUND` (B8).
 
 ---
 
-## 11. Project Structure
+## 12. Build, Test and Deploy (AWS Academy)
 
-```
-Designing-a-Serverless-REST-API-with-AWS-Lambda-and-API-Gateway/
-├── README.md                                  # Complete Workshop Report & Guide
-├── orders-api/
-│   ├── pom.xml                               # Java 17 Maven build & Shade plugin
-│   ├── PREDICTION.md                         # Committed prediction for Final Challenge
-│   ├── template.yaml                         # AWS SAM CloudFormation template
-│   ├── api-gateway/
-│   │   └── vtl/
-│   │       ├── get-order-by-id-request.vtl   # VTL Mapping template for GET /orders/{id}
-│   │       ├── get-orders-by-customer-request.vtl # VTL template for GET /orders?customerId=...
-│   │       └── post-order-request.vtl        # VTL template for POST /orders
-│   ├── events/
-│   │   ├── apigw-proxy-post-order.json       # Sample Proxy POST event
-│   │   ├── apigw-proxy-get-order-by-id.json  # Sample Proxy GET by ID event
-│   │   ├── apigw-proxy-get-orders-by-customer.json # Sample Proxy GET by customer event
-│   │   ├── apigw-proxy-delete-order.json     # Sample Proxy DELETE event
-│   │   ├── pojo-create-order-input1.json     # Sample direct POJO input 1
-│   │   ├── pojo-create-order-input2.json     # Sample direct POJO input 2
-│   │   └── pojo-get-order-input.json         # Sample direct POJO GET input
-│   └── src/
-│       ├── main/java/com/serverless/workshop/
-│       │   ├── domain/
-│       │   │   ├── Order.java                # Plain Java Order entity
-│       │   │   ├── CreateOrderRequest.java   # Plain Java Creation DTO
-│       │   │   ├── ErrorResponse.java        # Standardized Error DTO
-│       │   │   ├── OrderNotFoundException.java # Domain exception (404)
-│       │   │   └── InvalidOrderException.java  # Domain validation exception (400)
-│       │   ├── repository/
-│       │   │   ├── OrderRepository.java      # Repository interface
-│       │   │   └── InMemoryOrderRepository.java # ConcurrentHashMap implementation
-│       │   ├── service/
-│       │   │   └── OrderService.java         # Core business service (Zero AWS imports)
-│       │   └── lambda/
-│       │       ├── pojo/                     # Architecture A Handlers
-│       │       │   ├── CreateOrderPojoHandler.java
-│       │       │   ├── GetOrderRequest.java
-│       │       │   └── GetOrderPojoHandler.java
-│       │       └── proxy/                    # Architecture B Handler
-│       │           └── OrdersProxyHandler.java # HTTP Adapter / Front Controller
-│       └── test/java/com/serverless/workshop/
-│           ├── service/
-│           │   └── OrderServiceTest.java     # Domain unit tests (8 tests)
-│           └── lambda/
-│               ├── pojo/
-│               │   └── PojoHandlersTest.java # POJO handler unit tests (5 tests)
-│               └── proxy/
-│                   └── OrdersProxyHandlerTest.java # HTTP Adapter unit tests (10 tests)
-```
+Requirements: JDK 17+ (tested with JDK 21 targeting 17), Maven 3.9, AWS CLI v2, AWS SAM CLI.
 
----
-
-## 12. Step-by-Step Build, Test, and Demonstration Guide
-
-### 1. Run Unit Tests Locally
-Execute all 23 unit tests verifying domain logic, POJO handlers, and the HTTP adapter:
-```bash
+### Build and test locally
+```powershell
 cd orders-api
-mvn clean test
-```
-*Expected Output:*
-```
-[INFO] Running com.serverless.workshop.lambda.pojo.PojoHandlersTest
-[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
-[INFO] Running com.serverless.workshop.lambda.proxy.OrdersProxyHandlerTest
-[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0
-[INFO] Running com.serverless.workshop.service.OrderServiceTest
-[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0
-[INFO] 
-[INFO] Results:
-[INFO] Tests run: 23, Failures: 0, Errors: 0, Skipped: 0
-[INFO] BUILD SUCCESS
+mvn clean test      # 28 tests
+mvn package         # target/orders-api-1.0.0.jar (shaded)
 ```
 
-### 2. Package the Application (Uber-JAR)
-```bash
-mvn clean package
+### AWS Academy Learner Lab credentials
+1. Start the lab and open **AWS Details → AWS CLI → Show**.
+2. Copy the `[default]` block (including `aws_session_token`) to `%USERPROFILE%\.aws\credentials` (no `.txt` extension).
+3. Set the region: `%USERPROFILE%\.aws\config` → `[default]` / `region = us-east-1`.
+4. Check with `aws sts get-caller-identity` (the ARN contains `voclabs`). Credentials expire with the lab session.
+
+The Learner Lab **cannot create IAM roles**, so every function uses the existing `LabRole` (parameter `LabRoleName`).
+
+### Deploy
+```powershell
+sam deploy --guided
 ```
-Generates the shaded Uber-JAR at `orders-api/target/orders-api-1.0.0.jar` (~3.3 MB).
+Answers used: stack `orders-api`, region `us-east-1`, `LabRoleName` = `LabRole`, confirm changes `y`, **allow SAM CLI IAM role creation `n`**, `y` to "no authentication" warnings, save configuration `y`.
 
-### 3. Direct Lambda Invocation via AWS CLI (Architecture A)
-To test invoking the Lambda directly with a JSON document without API Gateway:
-```bash
-aws lambda invoke \
-  --function-name CreateOrderPojoFunction \
-  --payload fileb://events/pojo-create-order-input1.json \
-  response.json
+Outputs: `ProxyApiEndpoint` (Architecture B, stage `Prod`), `NonProxyApiEndpoint` (Architecture A, stage `prod`) and the three function names (`orders-proxy-handler`, `orders-create-order-pojo`, `orders-get-order-pojo`).
 
-cat response.json
-```
-*Result:*
-```json
-{"id":"ORD-4A92B1","customerId":"CUST-42","product":"MacBook Air","quantity":1}
-```
-
-### 4. Calling the Deployed API Gateway (Architecture B)
-
-#### Create an Order (POST)
-```bash
-curl -i -X POST https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders \
-  -H "Content-Type: application/json" \
-  -d '{"customerId":"CUST-42","product":"MacBook Air","quantity":1}'
-```
-*Response:*
-```http
-HTTP/1.1 201 Created
-Content-Type: application/json
-Location: /orders/ORD-7F1C90
-
-{
-  "id": "ORD-7F1C90",
-  "customerId": "CUST-42",
-  "product": "MacBook Air",
-  "quantity": 1
-}
+### Example calls (PowerShell — use `curl.exe`, not the `curl` alias)
+```powershell
+$B = "<ProxyApiEndpoint>"
+curl.exe -i -X POST $B -H "Content-Type: application/json" --data-binary "@events/pojo-create-order-input1.json"
+curl.exe -i "$B/ORD-001"
+curl.exe -i "$B`?customerId=CUST-42"
+curl.exe -i "$B/ORD-999"
+curl.exe -i -X DELETE "$B/ORD-042"
 ```
 
-#### Retrieve Existing Order (GET by ID)
-```bash
-curl -i -X GET https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders/ORD-001
-```
-*Response:*
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "id": "ORD-001",
-  "customerId": "CUST-42",
-  "product": "MacBook Air",
-  "quantity": 1
-}
-```
-
-#### Search Orders by Customer (GET with Query Param)
-```bash
-curl -i -X GET "https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders?customerId=CUST-42"
-```
-*Response:*
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-[
-  {"id":"ORD-001","customerId":"CUST-42","product":"MacBook Air","quantity":1},
-  {"id":"ORD-100","customerId":"CUST-42","product":"USB-C Adapter","quantity":3}
-]
-```
-
-#### 404 Response: Non-Existent Order
-```bash
-curl -i -X GET https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders/ORD-999
-```
-*Response:*
-```http
-HTTP/1.1 404 Not Found
-Content-Type: application/json
-
-{
-  "error": "ORDER_NOT_FOUND",
-  "message": "Order ORD-999 does not exist"
-}
-```
-
-#### 400 Response: Invalid Input
-```bash
-curl -i -X POST https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders \
-  -H "Content-Type: application/json" \
-  -d '{"customerId":"","product":"MacBook Air","quantity":-1}'
-```
-*Response:*
-```http
-HTTP/1.1 400 Bad Request
-Content-Type: application/json
-
-{
-  "error": "INVALID_INPUT",
-  "message": "customerId is required"
-}
-```
-
-#### Delete Order (DELETE)
-```bash
-curl -i -X DELETE https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders/ORD-001
-```
-*Response:*
-```http
-HTTP/1.1 204 No Content
-```
-
-And deleting a non-existent order:
-```bash
-curl -i -X DELETE https://{api-id}.execute-api.{region}.amazonaws.com/Prod/orders/ORD-999
-```
-*Response:*
-```http
-HTTP/1.1 404 Not Found
-Content-Type: application/json
-
-{
-  "error": "ORDER_NOT_FOUND",
-  "message": "Order ORD-999 does not exist"
-}
+### Remove the stack
+```powershell
+sam delete --stack-name orders-api
 ```
 
 ---
 
-## 13. Summary Conclusion
-This project demonstrates that in modern serverless engineering:
-* **The Core Domain must remain pristine**: Keeping business rules independent of AWS or HTTP protocols ensures testability, maintainability, and clean architecture.
-* **The HTTP Adapter bridges the protocol**: `OrdersProxyHandler` encapsulates HTTP concerns, headers, and status code mappings.
-* **Proxy Integration outperforms Non-Proxy Transformation**: Architecture B delivers superior local testability, keeps routing and mapping logic in version-controlled code, and scales effectively as API complexity increases.
+## 13. Project Structure
+
+```
+├── README.md
+├── evidence/
+│   ├── aws-session-2026-10-26.txt        # PowerShell transcript: tests, package, deploy, invocations, curl calls
+│   └── proxy-lambda-logs-2026-10-26.txt  # CloudWatch logs of orders-proxy-handler
+└── orders-api/
+    ├── pom.xml
+    ├── template.yaml                     # SAM: Architecture B (proxy) + Architecture A (non-proxy)
+    ├── PREDICTION.md                     # DELETE prediction (committed before implementing)
+    ├── api-gateway/vtl/                  # reference copies of the request mapping templates
+    ├── events/
+    │   ├── pojo-*.json                   # inputs for direct Lambda invocation
+    │   ├── apigw-proxy-*.json            # hand-written proxy events
+    │   └── real-proxy-event-*.json       # real proxy events from CloudWatch
+    └── src/
+        ├── main/java/com/serverless/workshop/
+        │   ├── domain/        Order, CreateOrderRequest, OrderNotFoundException, InvalidOrderException
+        │   ├── repository/    OrderRepository, InMemoryOrderRepository
+        │   ├── service/       OrderService
+        │   └── lambda/
+        │       ├── pojo/      CreateOrderPojoHandler, GetOrderPojoHandler, GetOrderRequest   (Architecture A)
+        │       └── proxy/     OrdersProxyHandler, ErrorResponse                              (Architecture B)
+        └── test/java/com/serverless/workshop/
+            ├── service/OrderServiceTest.java
+            └── lambda/{pojo/PojoHandlersTest.java, proxy/OrdersProxyHandlerTest.java}
+```
+
+---
+
+## 14. Demonstration Video
+
+**Video:** _TODO — add link_
+
+Contents: `mvn test`, `mvn package`, direct `aws lambda invoke`, successful POST and GET, a 404 and a 400 response, the DELETE extension (204 / 404) and the architecture diagram.

@@ -391,8 +391,6 @@ A real system would replace `InMemoryOrderRepository` with an implementation bac
 
 ## 10. Criticizing the AI Assistant
 
-> Review note for the author: these entries must reflect your own judgment. Edit them so they describe what you actually saw and decided.
-
 ### Decision 1 — One Lambda for the whole Orders API (proxy) vs one Lambda per operation
 * **Decision made by the agent:** a single `OrdersProxyHandler` routing every method, while keeping two POJO Lambdas only for Architecture A.
 * **Why it probably proposed it:** fewer functions to deploy, one place for serialization and error mapping, fewer cold starts.
